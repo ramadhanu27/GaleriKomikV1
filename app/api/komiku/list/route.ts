@@ -31,12 +31,30 @@ export async function GET(request: NextRequest) {
     const withCovers = searchParams.get('withCovers') === 'true'
 
     // Download komiku-list.json from Supabase Storage
+    console.log('Downloading from Supabase bucket:', SUPABASE_BUCKET)
     const { data, error } = await supabase.storage
       .from(SUPABASE_BUCKET)
       .download('komiku-list.json')
 
     if (error) {
-      throw new Error(`Failed to fetch from Supabase: ${error.message}`)
+      console.error('Supabase download error:', error)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Failed to download from Supabase: ${error.message}. Please check if the bucket '${SUPABASE_BUCKET}' is public and file 'komiku-list.json' exists.` 
+        },
+        { status: 500 }
+      )
+    }
+    
+    if (!data) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'No data received from Supabase storage' 
+        },
+        { status: 500 }
+      )
     }
 
     const text = await data.text()
@@ -134,12 +152,14 @@ export async function GET(request: NextRequest) {
         },
       },
     })
-  } catch (error: any) {
-    console.error('Error fetching manhwa list:', error)
+  } catch (error) {
+    console.error('Error in API route:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
+      { 
+        success: false, 
+        error: `Internal server error: ${errorMessage}`,
+        details: error instanceof Error ? error.stack : String(error)
       },
       { status: 500 }
     )
