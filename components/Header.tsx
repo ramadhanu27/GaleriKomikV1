@@ -180,7 +180,7 @@ export default function Header() {
               
               {/* Search Results Dropdown */}
               {searchQuery.length >= 2 && (
-                <div className="absolute top-full mt-2 w-96 bg-white dark:bg-dark-800 rounded-lg shadow-xl border border-gray-200 dark:border-dark-700 max-h-96 overflow-y-auto z-50">
+                <div className="absolute top-full mt-2 w-full sm:w-96 right-0 bg-white dark:bg-dark-800 rounded-lg shadow-xl border border-gray-200 dark:border-dark-700 max-h-96 overflow-y-auto z-50">
                   {isSearching ? (
                     <div className="p-4 text-center text-gray-500">
                       Mencari...
@@ -211,13 +211,13 @@ export default function Header() {
                       <div className="border-t border-gray-200 dark:border-dark-700 grid grid-cols-2">
                         <button
                           onClick={handleSearch}
-                          className="p-3 text-center text-primary-600 dark:text-primary-400 hover:bg-gray-100 dark:hover:bg-dark-700"
+                          className="p-3 text-center text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
                         >
                           Lihat semua →
                         </button>
                         <Link
                           href="/pencarian"
-                          className="p-3 text-center text-primary-600 dark:text-primary-400 hover:bg-gray-100 dark:hover:bg-dark-700 border-l border-gray-200 dark:border-dark-700"
+                          className="p-3 text-center text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-gray-100 dark:hover:bg-dark-700 border-l border-gray-200 dark:border-dark-700 transition-colors"
                           onClick={() => {
                             setSearchQuery('')
                             setSearchResults([])

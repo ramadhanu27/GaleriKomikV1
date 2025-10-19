@@ -12,14 +12,7 @@ export async function GET(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     
-    console.log('Environment check:', {
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseKey,
-      url: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'missing'
-    })
-    
     if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing Supabase credentials')
       return NextResponse.json(
         { 
           success: false, 
@@ -30,7 +23,6 @@ export async function GET(request: NextRequest) {
     }
     
     const supabase = createClient(supabaseUrl, supabaseKey)
-    console.log('Supabase client created successfully')
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
