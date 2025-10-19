@@ -30,33 +30,44 @@ export async function GET(request: NextRequest) {
     const genre = searchParams.get('genre') || ''
     const withCovers = searchParams.get('withCovers') === 'true'
 
-    // Get public URL for komiku-list.json
-    const { data: urlData } = supabase.storage
+    // Try to get public URL for komiku-list.json (try both paths)
+    let response: Response
+    let publicUrl: string
+    
+    // Try path with komiku folder first
+    const { data: urlData1 } = supabase.storage
       .from(SUPABASE_BUCKET)
       .getPublicUrl('komiku/komiku-list.json')
-
-    if (!urlData?.publicUrl) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Failed to get public URL from Supabase storage' 
-        },
-        { status: 500 }
-      )
+    
+    console.log('Trying URL 1:', urlData1?.publicUrl)
+    response = await fetch(urlData1.publicUrl)
+    console.log('Response status 1:', response.status)
+    
+    // If failed, try root path
+    if (!response.ok) {
+      const { data: urlData2 } = supabase.storage
+        .from(SUPABASE_BUCKET)
+        .getPublicUrl('komiku-list.json')
+      
+      console.log('Trying URL 2:', urlData2?.publicUrl)
+      response = await fetch(urlData2.publicUrl)
+      console.log('Response status 2:', response.status)
+      publicUrl = urlData2.publicUrl
+    } else {
+      publicUrl = urlData1.publicUrl
     }
-
-    // Fetch the file using public URL
-    const response = await fetch(urlData.publicUrl)
     
     if (!response.ok) {
       return NextResponse.json(
         { 
           success: false, 
-          error: `Failed to fetch file: ${response.status} ${response.statusText}. Please check if the bucket '${SUPABASE_BUCKET}' is public and file 'komiku/komiku-list.json' exists.` 
+          error: `Failed to fetch file from both paths. Status: ${response.status} ${response.statusText}. URLs tried: ${urlData1.publicUrl} and ${publicUrl}` 
         },
         { status: 500 }
       )
     }
+    
+    console.log('Successfully fetched from:', publicUrl)
 
     const text = await response.text()
     let manhwaList = JSON.parse(text)
