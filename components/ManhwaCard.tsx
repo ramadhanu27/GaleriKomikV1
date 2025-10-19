@@ -28,10 +28,10 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
   
   // Get the 2 latest chapters (from the end of the array)
   const totalChapters = manhwa.chapters?.length || 0
-  const firstChapter = totalChapters > 0 
+  const firstChapter = totalChapters > 0 && manhwa.chapters
     ? manhwa.chapters[totalChapters - 1]?.title || `Chapter ${manhwa.chapters[totalChapters - 1]?.number || totalChapters}`
     : 'Chapter 1'
-  const secondChapter = totalChapters > 1 
+  const secondChapter = totalChapters > 1 && manhwa.chapters
     ? manhwa.chapters[totalChapters - 2]?.title || `Chapter ${manhwa.chapters[totalChapters - 2]?.number || totalChapters - 1}`
     : 'Chapter 2'
   
