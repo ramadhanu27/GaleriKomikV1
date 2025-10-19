@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 const SUPABASE_BUCKET = 'komiku-data'
 
 // Force dynamic rendering for this route
@@ -13,6 +8,21 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if environment variables are available
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Supabase configuration is missing. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.' 
+        },
+        { status: 500 }
+      )
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey)
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
