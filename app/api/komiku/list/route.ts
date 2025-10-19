@@ -30,34 +30,35 @@ export async function GET(request: NextRequest) {
     const genre = searchParams.get('genre') || ''
     const withCovers = searchParams.get('withCovers') === 'true'
 
-    // Download komiku-list.json from Supabase Storage
-    console.log('Downloading from Supabase bucket:', SUPABASE_BUCKET)
-    const { data, error } = await supabase.storage
+    // Get public URL for komiku-list.json
+    const { data: urlData } = supabase.storage
       .from(SUPABASE_BUCKET)
-      .download('komiku/komiku-list.json')
+      .getPublicUrl('komiku/komiku-list.json')
 
-    if (error) {
-      console.error('Supabase download error:', error)
+    if (!urlData?.publicUrl) {
       return NextResponse.json(
         { 
           success: false, 
-          error: `Failed to download from Supabase: ${error.message}. Please check if the bucket '${SUPABASE_BUCKET}' is public and file 'komiku-list.json' exists.` 
+          error: 'Failed to get public URL from Supabase storage' 
         },
         { status: 500 }
       )
     }
+
+    // Fetch the file using public URL
+    const response = await fetch(urlData.publicUrl)
     
-    if (!data) {
+    if (!response.ok) {
       return NextResponse.json(
         { 
           success: false, 
-          error: 'No data received from Supabase storage' 
+          error: `Failed to fetch file: ${response.status} ${response.statusText}. Please check if the bucket '${SUPABASE_BUCKET}' is public and file 'komiku/komiku-list.json' exists.` 
         },
         { status: 500 }
       )
     }
 
-    const text = await data.text()
+    const text = await response.text()
     let manhwaList = JSON.parse(text)
 
     // Filter by search query (on original list)
