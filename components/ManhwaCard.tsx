@@ -26,19 +26,19 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
     .trim()
   const cleanSlug = manhwa.slug.replace(/-bahasa-indonesia$/, '')
   
-  // Get the 2 latest chapters (from the end of the array)
-  const totalChapters = manhwa.chapters?.length || 0
-  const firstChapter = totalChapters > 0 && manhwa.chapters
-    ? manhwa.chapters[totalChapters - 1]?.title || `Chapter ${manhwa.chapters[totalChapters - 1]?.number || totalChapters}`
-    : 'Chapter 1'
-  const secondChapter = totalChapters > 1 && manhwa.chapters
-    ? manhwa.chapters[totalChapters - 2]?.title || `Chapter ${manhwa.chapters[totalChapters - 2]?.number || totalChapters - 1}`
-    : 'Chapter 2'
-  
   // Use CDN optimized image if it's a Supabase URL, otherwise use original
   const displayImage = manhwa.image.includes('thumbnail.komiku.org') || manhwa.image.includes('komiku.org')
     ? manhwa.image // External URL, use as is
     : getThumbnail(manhwa.image) // Supabase storage, use CDN
+  
+  // Get chapter info safely
+  const getChapterTitle = (index: number) => {
+    if (!manhwa.chapters || manhwa.chapters.length === 0) {
+      return `Chapter ${index + 1}`
+    }
+    const chapter = manhwa.chapters[index]
+    return chapter?.title || `Chapter ${chapter?.number || index + 1}`
+  }
 
   return (
     <Link
@@ -124,7 +124,10 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
         {/* First Chapter Row */}
         <div className="text-xs flex items-center gap-1">
           <span className="text-gray-700 dark:text-gray-300 font-medium truncate flex-1">
-            {firstChapter}
+            {manhwa.chapters && manhwa.chapters.length > 0 
+              ? getChapterTitle(manhwa.chapters.length - 1)
+              : 'Chapter 1'
+            }
           </span>
           {showNewBadge && (
             <span className="bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0">
@@ -136,13 +139,11 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
         {/* Second Chapter Row */}
         <div className="text-xs flex items-center gap-1">
           <span className="text-gray-500 dark:text-gray-400 truncate flex-1">
-            {secondChapter}
+            {manhwa.chapters && manhwa.chapters.length > 1
+              ? getChapterTitle(manhwa.chapters.length - 2)
+              : 'Chapter 2'
+            }
           </span>
-          {showNewBadge && (
-            <span className="bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0">
-              UP
-            </span>
-          )}
         </div>
       </div>
     </Link>
