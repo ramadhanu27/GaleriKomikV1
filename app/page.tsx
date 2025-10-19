@@ -9,6 +9,7 @@ export default function Home() {
   const [popularList, setPopularList] = useState<Manhwa[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingPopular, setLoadingPopular] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchManhwa()
@@ -20,6 +21,11 @@ export default function Home() {
       console.log('Fetching manhwa from API...')
       const response = await fetch('/api/komiku/list?limit=50&withCovers=true')
       console.log('Response status:', response.status)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
       console.log('API Response:', data)
       
@@ -36,11 +42,14 @@ export default function Home() {
           .slice(0, 30)
         
         setManhwaList(sorted)
+        setError(null)
       } else {
         console.error('API returned error:', data.error)
+        setError(data.error || 'Failed to load manhwa')
       }
     } catch (error) {
       console.error('Error fetching manhwa:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load manhwa')
     } finally {
       setLoading(false)
     }
@@ -79,6 +88,25 @@ export default function Home() {
             Nikmati koleksi lengkap dengan update terbaru setiap hari.
           </p>
         </section>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-8 p-4 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded-lg">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-red-800 dark:text-red-200 font-semibold">Error loading data</p>
+            </div>
+            <p className="text-red-700 dark:text-red-300 text-sm mt-1">{error}</p>
+            <button 
+              onClick={() => { fetchManhwa(); fetchPopular(); }}
+              className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Popular Section */}
         <section className="mb-12">
