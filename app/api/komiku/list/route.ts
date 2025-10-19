@@ -1,10 +1,15 @@
-import { NextResponse } from 'next/server'
-import { supabase, SUPABASE_BUCKET } from '@/lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-// Cache for 5 minutes
-export const revalidate = 300
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-export async function GET(request: Request) {
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')

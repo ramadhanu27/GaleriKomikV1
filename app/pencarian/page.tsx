@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import ManhwaCard from '@/components/ManhwaCard'
 import { Manhwa } from '@/types'
+import Link from 'next/link'
 
 const GENRES = [
   'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror',
@@ -19,7 +20,7 @@ const SORT_OPTIONS = [
   { value: 'title', label: 'Judul A-Z' }
 ]
 
-export default function AdvancedSearchPage() {
+function AdvancedSearchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -364,5 +365,22 @@ export default function AdvancedSearchPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AdvancedSearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="py-8">
+        <div className="container-custom">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <AdvancedSearchContent />
+    </Suspense>
   )
 }
