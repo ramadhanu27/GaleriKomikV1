@@ -6,6 +6,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+const SUPABASE_BUCKET = 'komiku-data'
+
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
 
