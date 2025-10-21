@@ -70,7 +70,7 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
         {slides.map((manhwa, index) => {
           // Get the latest chapter (first in array is usually the latest)
           const latestChapter = manhwa.chapters?.[0]
-          const chapterNumber = latestChapter?.number || latestChapter?.chapterNumber || 'Latest'
+          const chapterNumber = latestChapter?.number || 'Latest'
           const chapterTitle = latestChapter?.title || ''
           
           return (
