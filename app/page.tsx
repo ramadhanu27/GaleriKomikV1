@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import ManhwaCard from '@/components/ManhwaCard'
+import HeroSlider from '@/components/HeroSlider'
 import { Manhwa } from '@/types'
 
 export default function Home() {
@@ -10,6 +11,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [loadingPopular, setLoadingPopular] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 12
 
   useEffect(() => {
     fetchManhwa()
@@ -78,16 +81,8 @@ export default function Home() {
   return (
     <div className="py-8">
       <div className="container-custom">
-        {/* Hero Section */}
-        <section className="mb-12 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="text-gradient">Arkomik</span>
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-lg max-w-2xl mx-auto">
-            Platform terbaik untuk membaca manhwa bahasa Indonesia. 
-            Nikmati koleksi lengkap dengan update terbaru setiap hari.
-          </p>
-        </section>
+        {/* Hero Slider */}
+        {!loading && manhwaList.length > 0 && <HeroSlider manhwaList={manhwaList} />}
 
         {/* Error Message */}
         {error && (
@@ -144,6 +139,9 @@ export default function Home() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               📚 Update Terbaru
             </h2>
+            <a href="/terbaru" className="text-primary-600 dark:text-primary-400 hover:underline text-sm">
+              Lihat Semua →
+            </a>
           </div>
 
           {loading ? (
@@ -153,11 +151,52 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {manhwaList.map((manhwa) => (
-                <ManhwaCard key={manhwa.slug} manhwa={manhwa} showNewBadge={true} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {manhwaList
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((manhwa) => (
+                    <ManhwaCard key={manhwa.slug} manhwa={manhwa} showNewBadge={true} />
+                  ))}
+              </div>
+
+              {/* Pagination */}
+              {manhwaList.length > itemsPerPage && (
+                <div className="flex items-center justify-center gap-2 mt-8">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-dark-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-dark-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ← Prev
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: Math.ceil(manhwaList.length / itemsPerPage) }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          currentPage === page
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-gray-200 dark:bg-dark-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-dark-700'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(manhwaList.length / itemsPerPage), prev + 1))}
+                    disabled={currentPage === Math.ceil(manhwaList.length / itemsPerPage)}
+                    className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-dark-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-dark-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
 

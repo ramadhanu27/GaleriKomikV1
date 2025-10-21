@@ -31,43 +31,79 @@ export async function GET(request: NextRequest) {
     const withCovers = searchParams.get('withCovers') === 'true'
 
     // Try to get public URL for komiku-list.json (try both paths)
-    let response: Response
-    let publicUrl: string
+    let response: Response | null = null
+    let publicUrl: string = ''
     
-    // Try path with komiku folder first
-    const { data: urlData1 } = supabase.storage
-      .from(SUPABASE_BUCKET)
-      .getPublicUrl('komiku/komiku-list.json')
-    
-    console.log('Trying URL 1:', urlData1?.publicUrl)
-    response = await fetch(urlData1.publicUrl)
-    console.log('Response status 1:', response.status)
-    
-    // If failed, try root path
-    if (!response.ok) {
-      const { data: urlData2 } = supabase.storage
+    try {
+      // Try path with komiku folder first
+      const { data: urlData1 } = supabase.storage
         .from(SUPABASE_BUCKET)
-        .getPublicUrl('komiku-list.json')
+        .getPublicUrl('komiku/komiku-list.json')
       
-      console.log('Trying URL 2:', urlData2?.publicUrl)
-      response = await fetch(urlData2.publicUrl)
-      console.log('Response status 2:', response.status)
-      publicUrl = urlData2.publicUrl
-    } else {
-      publicUrl = urlData1.publicUrl
-    }
-    
-    if (!response.ok) {
+      console.log('Trying URL 1:', urlData1?.publicUrl)
+      
+      try {
+        response = await fetch(urlData1.publicUrl, { 
+          cache: 'no-store',
+          headers: {
+            'User-Agent': 'Mozilla/5.0'
+          }
+        })
+        console.log('Response status 1:', response.status)
+        
+        if (response.ok) {
+          publicUrl = urlData1.publicUrl
+        }
+      } catch (fetchError) {
+        console.log('Fetch error for URL 1:', fetchError)
+      }
+      
+      // If failed, try root path
+      if (!response || !response.ok) {
+        const { data: urlData2 } = supabase.storage
+          .from(SUPABASE_BUCKET)
+          .getPublicUrl('komiku-list.json')
+        
+        console.log('Trying URL 2:', urlData2?.publicUrl)
+        
+        try {
+          response = await fetch(urlData2.publicUrl, { 
+            cache: 'no-store',
+            headers: {
+              'User-Agent': 'Mozilla/5.0'
+            }
+          })
+          console.log('Response status 2:', response.status)
+          
+          if (response.ok) {
+            publicUrl = urlData2.publicUrl
+          }
+        } catch (fetchError) {
+          console.log('Fetch error for URL 2:', fetchError)
+        }
+      }
+      
+      if (!response || !response.ok) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `Failed to fetch file from Supabase. Please check if bucket is public and file exists.` 
+          },
+          { status: 500 }
+        )
+      }
+      
+      console.log('Successfully fetched from:', publicUrl)
+    } catch (error) {
+      console.error('Error fetching from Supabase:', error)
       return NextResponse.json(
         { 
           success: false, 
-          error: `Failed to fetch file from both paths. Status: ${response.status} ${response.statusText}. URLs tried: ${urlData1.publicUrl} and ${publicUrl}` 
+          error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}` 
         },
         { status: 500 }
       )
     }
-    
-    console.log('Successfully fetched from:', publicUrl)
 
     const text = await response.text()
     let manhwaList = JSON.parse(text)
