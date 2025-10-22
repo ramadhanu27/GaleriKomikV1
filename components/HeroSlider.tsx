@@ -98,7 +98,7 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
                       )}
                     </div>
                     <h1 className="text-3xl md:text-5xl font-bold mb-4 animate-fade-in line-clamp-2">
-                      {manhwa.manhwaTitle || manhwa.title}
+                      {(manhwa.manhwaTitle || manhwa.title).replace(/^Komik\s+/i, '')}
                     </h1>
                     <p className="text-base md:text-lg opacity-90 mb-2 line-clamp-3">
                       {manhwa.synopsis || 'Baca manhwa seru dengan chapter terbaru yang selalu update setiap hari. Nikmati cerita menarik dengan kualitas terbaik.'}

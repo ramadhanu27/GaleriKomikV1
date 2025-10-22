@@ -30,6 +30,11 @@ export interface Chapter {
   url: string
   date?: string
   views?: string
+  images?: Array<{
+    page: number
+    url: string
+    filename: string
+  }>
 }
 
 export interface ReadingHistory {

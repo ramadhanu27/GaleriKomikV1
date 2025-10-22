@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getCover } from '@/lib/imageOptimizer'
+import ChapterGrid from '@/components/ChapterGrid'
+import RecommendedManhwa from '@/components/RecommendedManhwa'
 
 interface ManhwaDetail {
   title: string
@@ -204,42 +206,23 @@ export default function ManhwaDetailPage() {
           </div>
         </div>
 
-        {/* Chapter List */}
+        {/* Chapter Grid */}
         <div className="card p-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Daftar Chapter
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            📖 Daftar Chapter
           </h2>
           
           {manhwa.chapters && manhwa.chapters.length > 0 ? (
-            <div className="grid gap-2">
-              {manhwa.chapters.map((chapter: any, index: number) => (
-                <Link
-                  key={index}
-                  href={`/manhwa/${slug}/chapter/${chapter.number || chapter.id || chapter.chapter}`}
-                  className="flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-dark-800 rounded-lg transition-colors border border-transparent hover:border-primary-500"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-primary-600 dark:text-primary-400">
-                      Chapter {chapter.number}
-                    </span>
-                    {chapter.date && (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {chapter.date}
-                      </span>
-                    )}
-                  </div>
-                  <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              ))}
-            </div>
+            <ChapterGrid chapters={manhwa.chapters} manhwaSlug={slug} />
           ) : (
             <p className="text-gray-600 dark:text-gray-400">
               Belum ada chapter tersedia
             </p>
           )}
         </div>
+
+        {/* Recommended Manhwa */}
+        <RecommendedManhwa currentManhwa={{ genres: manhwa.genres, slug: manhwa.slug }} />
       </div>
     </div>
   )

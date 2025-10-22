@@ -31,13 +31,23 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
     ? manhwa.image // External URL, use as is
     : getThumbnail(manhwa.image) // Supabase storage, use CDN
   
+  // Sort chapters by number (descending) to get latest first
+  const sortedChapters = manhwa.chapters 
+    ? [...manhwa.chapters].sort((a, b) => {
+        const numA = parseInt(a.number) || 0
+        const numB = parseInt(b.number) || 0
+        return numB - numA // Descending order (latest first)
+      })
+    : []
+  
   // Get chapter info safely
   const getChapterTitle = (index: number) => {
-    if (!manhwa.chapters || manhwa.chapters.length === 0) {
+    if (!sortedChapters || sortedChapters.length === 0) {
       return `Chapter ${index + 1}`
     }
-    const chapter = manhwa.chapters[index]
-    return chapter?.title || `Chapter ${chapter?.number || index + 1}`
+    const chapter = sortedChapters[index]
+    // Always show chapter number, not title
+    return `Chapter ${chapter?.number || index + 1}`
   }
 
   return (
@@ -121,11 +131,11 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
 
       {/* Chapter Info Section */}
       <div className="bg-gray-50 dark:bg-dark-800 p-2.5 space-y-1.5 transition-colors">
-        {/* First Chapter Row */}
+        {/* First Chapter Row - Latest Chapter */}
         <div className="text-xs flex items-center gap-1">
           <span className="text-gray-700 dark:text-gray-300 font-medium truncate flex-1">
-            {manhwa.chapters && manhwa.chapters.length > 0 
-              ? getChapterTitle(manhwa.chapters.length - 1)
+            {sortedChapters.length > 0 
+              ? getChapterTitle(0)
               : 'Chapter 1'
             }
           </span>
@@ -136,11 +146,11 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
           )}
         </div>
         
-        {/* Second Chapter Row */}
+        {/* Second Chapter Row - Second Latest Chapter */}
         <div className="text-xs flex items-center gap-1">
           <span className="text-gray-500 dark:text-gray-400 truncate flex-1">
-            {manhwa.chapters && manhwa.chapters.length > 1
-              ? getChapterTitle(manhwa.chapters.length - 2)
+            {sortedChapters.length > 1
+              ? getChapterTitle(1)
               : 'Chapter 2'
             }
           </span>

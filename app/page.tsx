@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import ManhwaCard from '@/components/ManhwaCard'
 import HeroSlider from '@/components/HeroSlider'
+import PopularSidebar from '@/components/PopularSidebar'
 import { Manhwa } from '@/types'
 
 export default function Home() {
@@ -22,7 +23,8 @@ export default function Home() {
   const fetchManhwa = async () => {
     try {
       console.log('Fetching manhwa from API...')
-      const response = await fetch('/api/komiku/list?limit=50&withCovers=true')
+      // Use new API that reads from individual JSON files with scrapedAt
+      const response = await fetch('/api/komiku/list-from-files?limit=50')
       console.log('Response status:', response.status)
       
       if (!response.ok) {
@@ -35,16 +37,17 @@ export default function Home() {
       if (data.success) {
         console.log('Manhwa count:', data.data.manhwa?.length || 0)
         
-        // Sort by lastModified date (newest first) and take top 30
-        const sorted = [...data.data.manhwa]
-          .sort((a, b) => {
-            const dateA = a.lastModified ? new Date(a.lastModified).getTime() : 0
-            const dateB = b.lastModified ? new Date(b.lastModified).getTime() : 0
-            return dateB - dateA
-          })
-          .slice(0, 30)
+        // API already sorted by scrapedAt, just take top 30
+        const manhwaData = data.data.manhwa.slice(0, 30)
         
-        setManhwaList(sorted)
+        // Debug: Log top 5 manhwa with scrapedAt and chapters
+        console.log('Top 5 manhwa by scrapedAt:')
+        manhwaData.slice(0, 5).forEach((m: any, i: number) => {
+          console.log(`${i + 1}. ${m.title} - ${m.scrapedAt || 'No date'}`)
+          console.log('   Chapters:', m.chapters?.slice(0, 3).map((c: any) => c.number))
+        })
+        
+        setManhwaList(manhwaData)
         setError(null)
       } else {
         console.error('API returned error:', data.error)
@@ -84,7 +87,11 @@ export default function Home() {
         {/* Hero Slider */}
         {!loading && manhwaList.length > 0 && <HeroSlider manhwaList={manhwaList} />}
 
-        {/* Error Message */}
+        {/* Main Content with Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-8 xl:col-span-9">
+            {/* Error Message */}
         {error && (
           <div className="mb-8 p-4 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded-lg">
             <div className="flex items-center gap-2">
@@ -155,8 +162,12 @@ export default function Home() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {manhwaList
                   .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                  .map((manhwa) => (
-                    <ManhwaCard key={manhwa.slug} manhwa={manhwa} showNewBadge={true} />
+                  .map((manhwa, index) => (
+                    <ManhwaCard 
+                      key={`${manhwa.slug}-${currentPage}-${index}`} 
+                      manhwa={manhwa} 
+                      showNewBadge={true} 
+                    />
                   ))}
               </div>
 
@@ -199,8 +210,13 @@ export default function Home() {
             </>
           )}
         </section>
+          </div>
 
-      
+          {/* Sidebar */}
+          <aside className="lg:col-span-4 xl:col-span-3">
+            <PopularSidebar />
+          </aside>
+        </div>
       </div>
     </div>
   )

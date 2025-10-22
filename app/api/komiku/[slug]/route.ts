@@ -36,9 +36,30 @@ export async function GET(
     let chapters = []
     let chapterInfo = {}
     
-    const { data: chapterData, error: chapterError } = await supabase.storage
-      .from(SUPABASE_BUCKET)
-      .download(`Chapter/komiku/${slug}.json`)
+    // Try multiple possible file names
+    const possiblePaths = [
+      `Chapter/komiku/${manhwa.jsonFileName || slug}.json`, // Try jsonFileName first
+      `komiku/${manhwa.jsonFileName || slug}.json`, // Try without Chapter folder
+      `${manhwa.jsonFileName || slug}.json`, // Try root
+    ]
+    
+    let chapterData = null
+    let chapterError = null
+    
+    for (const path of possiblePaths) {
+      const result = await supabase.storage
+        .from(SUPABASE_BUCKET)
+        .download(path)
+      
+      if (!result.error && result.data) {
+        console.log(`Found chapter file at: ${path}`)
+        chapterData = result.data
+        chapterError = null
+        break
+      } else {
+        chapterError = result.error
+      }
+    }
     
     if (!chapterError && chapterData) {
       const chapterText = await chapterData.text()
@@ -67,7 +88,7 @@ export async function GET(
         slug: chapterJson.slug,
       }
     } else {
-      console.log('Chapter error:', chapterError?.message)
+      console.log('Chapter error - tried all paths:', chapterError?.message)
     }
 
     const finalData = {
