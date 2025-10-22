@@ -7,11 +7,41 @@ import { Manhwa } from '@/types'
 import Link from 'next/link'
 
 const GENRES = [
-  'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror',
-  'Mystery', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports',
-  'Supernatural', 'Thriller', 'Martial Arts', 'School Life',
-  'Shounen', 'Shoujo', 'Seinen', 'Josei', 'Isekai', 'Harem'
-]
+  '4-Koma', 'Actiom', 'Action', 'Action Adventure', 'Actions', 'Adaptasi', 'Adaptation',
+  'Adult', 'Adventure', 'Adventure l', 'Age Gap', 'Aliens', 'Animal', 'Animals',
+  'Antihero', 'Apocalyptic', 'Artbook', 'Award Winning', 'Bacamanga', 'Beasts',
+  'Berwarna Penuh', 'Bloody', 'Bodyswap', 'Borderline H', 'Boys', 'Boys\' Love',
+  'Businessman', 'Cartoon', 'Cheating/Infidelity', 'Childhood Friends', 'Clam Protagonist',
+  'College life', 'Comedy', 'Comedy. Fantasy. Isekai. Romance', 'Comic', 'COMICS',
+  'Coming Soon', 'Cooking', 'Cooming Soon', 'Crime', 'Crossdressing', 'Cultivasi',
+  'cultivation', 'Dance', 'Dark Fantasy', 'Delinquents', 'Dementia', 'Demon', 'Demons',
+  'Doctor', 'Drama', 'Dungeons', 'Ecchi', 'Emperor\'s daughte', 'Emperor\'s daughter',
+  'Fan-Colored', 'Fanstasy', 'Fanstay', 'Fantas', 'Fantasi', 'Fantasy', 'Fetish',
+  'Full Color', 'Full Colour', 'Fusion Fantasy', 'Game', 'gaming', 'Gang',
+  'Gender Bender', 'Genderswap', 'Genius', 'genre drama', 'Ghosts', 'Girls',
+  'Girls\' Love', 'Gore', 'Gyaru', 'H4rem', 'Harem', 'Hentai', 'Hero', 'Historical',
+  'History', 'Horror', 'Hot blood', 'Imageset', 'Incest', 'Industri Film', 'Iseka',
+  'Isekai', 'Josei', 'Josei(W)', 'kerajaan', 'Kids', 'Kodomo', 'Kombay', 'Komedi',
+  'Komikav', 'Komikcast', 'Korean', 'KUMAPAGE', 'Law', 'Leveling', 'Loli', 'Lolicon',
+  'Long Strip', 'Mafia', 'Magic', 'Magical', 'Magical Girls', 'Manga', 'Manhua',
+  'Manhwa', 'Martial Art', 'Martial Arts', 'Matrial Arts', 'Mature', 'Mecha', 'Medical',
+  'MgKomik', 'Milf Lover', 'Military', 'Mirror', 'Modern', 'Monster', 'Monster girls',
+  'Monsters', 'Murim', 'Music', 'Mystery', 'Necromancer', 'Netorare/NTR', 'Ninja',
+  'Non-human', 'NTR', 'Office Workers', 'One-Shot', 'Oneshot', 'Ongoing', 'Overpowered',
+  'Parody', 'Penjahat', 'Pets', 'Philosophical', 'Police', 'Post apocalyptic', 'Project',
+  'Psychological', 'Regression', 'Reincanation', 'Reincarnation', 'Returner', 'Revenge',
+  'Reverse harem', 'Reverse Isekai', 'Romance', 'Romane', 'Romantis', 'Romcom',
+  'Royal family', 'Royalty', 'scholol life', 'School', 'School Life', 'Sci-fi', 'Seinen',
+  'Seinen(M)', 'Seinin', 'Sejarah', 'SekteKomik', 'Sexual Violence', 'Shotacon', 'Shoujo',
+  'Shoujo Ai', 'Shoujo(G)', 'Shoujom Romance', 'Shounen', 'Shounen Ai', 'Shounen Ai.Yaoi',
+  'Shounen(B)', 'Showbiz', 'Silver & Golden', 'Slice of Lie', 'Slice of Life', 'SliLifece of',
+  'SM/BDSM/SUB-DOM', 'Smut', 'Space', 'Sport', 'Sports', 'Super Power', 'Superhero',
+  'Supernatural', 'Superpowers', 'Supranatural', 'Survival', 'Sutradara', 'System',
+  'Thriller', 'Time Travel', 'Traditional Games', 'Tragedy', 'Transmigration', 'Updating',
+  'Vampire', 'Vampires', 'Video Games', 'Villainess', 'Violence', 'Virtual Reality',
+  'Web Comic', 'Webtoon', 'Webtoons', 'Western', 'Wuxia', 'Xianxia', 'Xuanhuan',
+  'Yakuzas', 'Yaoi', 'Yaoi(BL)', 'Yuri', 'Yuri(GL)', 'Zombies'
+].sort()
 
 const STATUS_OPTIONS = ['All', 'Ongoing', 'Complete']
 const SORT_OPTIONS = [
@@ -34,15 +64,7 @@ function AdvancedSearchContent() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
   const [selectedStatus, setSelectedStatus] = useState('All')
   const [sortBy, setSortBy] = useState('latest')
-
-  useEffect(() => {
-    fetchManhwa()
-  }, [page, selectedGenres, selectedStatus, sortBy, searchQuery])
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setPage(1)
-  }, [selectedGenres, selectedStatus, sortBy, searchQuery])
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const fetchManhwa = async () => {
     try {
@@ -51,17 +73,18 @@ function AdvancedSearchContent() {
       // Progressive loading - load and display results incrementally
       let allManhwa: Manhwa[] = []
       
-      // Load multiple pages progressively
-      const maxPages = 10
-      const promises = []
+      // Optimized: Load fewer pages but faster
+      const maxPages = 5 // Reduced from 10 to 5 for faster loading
+      const initialBatchSize = 2 // Load 2 pages initially for quick display
       
-      // Load first 3 pages in parallel for quick initial results
-      for (let p = 1; p <= 3; p++) {
+      // Load first 2 pages in parallel for instant results
+      const promises = []
+      for (let p = 1; p <= initialBatchSize; p++) {
         const url = `/api/komiku/list?page=${p}&limit=50&withCovers=true${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
         promises.push(fetch(url).then(res => res.json()))
       }
       
-      // Wait for first batch
+      // Wait for first batch and show immediately
       const firstBatch = await Promise.all(promises)
       firstBatch.forEach(data => {
         if (data.success && data.data.manhwa.length > 0) {
@@ -69,25 +92,28 @@ function AdvancedSearchContent() {
         }
       })
       
-      // Show initial results immediately
+      // Show initial results immediately (100 manhwa)
       applyFiltersAndDisplay(allManhwa)
       setLoading(false)
       
-      // Continue loading remaining pages in background
-      for (let p = 4; p <= maxPages; p++) {
+      // Load remaining pages in parallel batches (background)
+      const remainingPages = []
+      for (let p = initialBatchSize + 1; p <= maxPages; p++) {
         const url = `/api/komiku/list?page=${p}&limit=50&withCovers=true${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
-        const response = await fetch(url)
-        const data = await response.json()
-        
+        remainingPages.push(fetch(url).then(res => res.json()))
+      }
+      
+      // Process remaining pages as they arrive
+      const remainingBatch = await Promise.all(remainingPages)
+      remainingBatch.forEach(data => {
         if (data.success && data.data.manhwa.length > 0) {
           allManhwa = [...allManhwa, ...data.data.manhwa]
-          applyFiltersAndDisplay(allManhwa) // Update results as more data loads
-          
-          if (data.data.manhwa.length < 50) break
-        } else {
-          break
         }
-      }
+      })
+      
+      // Final update with all data
+      applyFiltersAndDisplay(allManhwa)
+      
     } catch (error) {
       console.error('Error fetching manhwa:', error)
       setLoading(false)
@@ -127,7 +153,7 @@ function AdvancedSearchContent() {
     }
     
     // Client-side pagination
-    const itemsPerPage = 30
+    const itemsPerPage = 20
     const totalItems = results.length
     const totalPagesCalc = Math.ceil(totalItems / itemsPerPage)
     const startIndex = (page - 1) * itemsPerPage
@@ -160,6 +186,15 @@ function AdvancedSearchContent() {
     setPage(1)
   }
 
+  useEffect(() => {
+    fetchManhwa()
+  }, [page, selectedGenres, selectedStatus, sortBy, searchQuery])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [selectedGenres, selectedStatus, sortBy, searchQuery])
+
   return (
     <div className="py-8">
       <div className="container-custom">
@@ -167,135 +202,161 @@ function AdvancedSearchContent() {
           🔍 Pencarian Lanjutan
         </h1>
 
-        {/* Search Bar */}
-        <div className="card p-6 mb-6">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Cari judul manhwa..."
-              className="input-field flex-1"
-            />
-            <button
-              onClick={handleSearch}
-              className="btn-primary px-6"
-            >
-              Cari
-            </button>
-          </div>
-        </div>
+        {/* Modern Filter Section */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 dark:from-dark-800 dark:to-dark-900 rounded-2xl shadow-xl p-6 mb-8 border border-slate-700/50">
+          {/* Filter Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            {/* Genre Dropdown */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300 block">Genre</label>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    toggleGenre(e.target.value)
+                    e.target.value = '' // Reset dropdown
+                  }
+                }}
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none hover:bg-slate-700"
+                defaultValue=""
+              >
+                <option value="" disabled>Genre All ▼</option>
+                {GENRES.map((genre) => (
+                  <option key={genre} value={genre}>
+                    {genre}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div className="grid lg:grid-cols-4 gap-6">
-          {/* Filters Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="card p-6 sticky top-20">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-lg text-gray-900 dark:text-white">
-                  Filter
-                </h2>
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
-                >
-                  Reset
-                </button>
+            {/* Status Dropdown */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300 block">Status</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => {
+                  setSelectedStatus(e.target.value)
+                  setPage(1)
+                }}
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none hover:bg-slate-700"
+              >
+                <option value="All">Status All ▼</option>
+                {STATUS_OPTIONS.filter(s => s !== 'All').map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300 block">Urutan</label>
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value)
+                  setPage(1)
+                }}
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none hover:bg-slate-700"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300 block">Cari Manhwa</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="Cari judul manhwa..."
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none hover:bg-slate-700"
+                />
               </div>
-
-              {/* Status Filter */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                  Status
-                </h3>
-                <div className="space-y-2">
-                  {STATUS_OPTIONS.map((status) => (
-                    <label key={status} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="status"
-                        checked={selectedStatus === status}
-                        onChange={() => {
-                          setSelectedStatus(status)
-                          setPage(1)
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-gray-700 dark:text-gray-300">{status}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sort Filter */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                  Urutkan
-                </h3>
-                <select
-                  value={sortBy}
-                  onChange={(e) => {
-                    setSortBy(e.target.value)
-                    setPage(1)
-                  }}
-                  className="input-field w-full"
-                >
-                  {SORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Genre Filter */}
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                  Genre
-                </h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {GENRES.map((genre) => (
-                    <label key={genre} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedGenres.includes(genre)}
-                        onChange={() => toggleGenre(genre)}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-gray-700 dark:text-gray-300">{genre}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Active Filters */}
-              {(selectedGenres.length > 0 || selectedStatus !== 'All') && (
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-dark-700">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                    Filter Aktif:
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedGenres.map((genre) => (
-                      <span
-                        key={genre}
-                        className="text-xs bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 px-2 py-1 rounded"
-                      >
-                        {genre}
-                      </span>
-                    ))}
-                    {selectedStatus !== 'All' && (
-                      <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded">
-                        {selectedStatus}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Results */}
-          <div className="lg:col-span-3">
+          {/* Action Buttons Row */}
+          <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-700/50">
+            {/* Search Button */}
+            <button
+              onClick={handleSearch}
+              className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-lg transition-all shadow-lg shadow-red-900/30 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Search
+            </button>
+
+            {/* View Mode Toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-4 py-2.5 rounded-lg font-medium transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
+                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                Grid
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-4 py-2.5 rounded-lg font-medium transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
+                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                Text Mode
+              </button>
+            </div>
+
+            {/* Clear Filters */}
+            {(selectedGenres.length > 0 || selectedStatus !== 'All' || sortBy !== 'latest' || searchQuery) && (
+              <button
+                onClick={clearFilters}
+                className="ml-auto px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-lg transition-all flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Reset Filters
+              </button>
+            )}
+          </div>
+
+          {/* Active Genre Tags */}
+          {selectedGenres.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-700/50">
+              <span className="text-sm text-slate-400 font-medium mr-2">Genre dipilih:</span>
+              {selectedGenres.map((genre) => (
+                <span
+                  key={genre}
+                  onClick={() => toggleGenre(genre)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white text-sm font-medium rounded-full cursor-pointer hover:from-primary-700 hover:to-primary-800 transition-all shadow-md hover:shadow-lg"
+                >
+                  {genre}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Results */}
+        <div>
+            {/* Results Count */}
             {!loading && (
               <div className="mb-4">
                 <p className="text-gray-600 dark:text-gray-400">
@@ -312,18 +373,59 @@ function AdvancedSearchContent() {
             )}
 
             {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {[...Array(12)].map((_, i) => (
-                  <div key={i} className="skeleton h-80 rounded-lg" />
+              <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4' : 'space-y-2'}>
+                {[...Array(15)].map((_, i) => (
+                  <div key={i} className={viewMode === 'grid' ? 'skeleton h-80 rounded-lg' : 'skeleton h-12 rounded-lg'} />
                 ))}
               </div>
             ) : manhwaList.length > 0 ? (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {manhwaList.map((manhwa) => (
-                    <ManhwaCard key={manhwa.slug} manhwa={manhwa} />
-                  ))}
-                </div>
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {manhwaList.map((manhwa) => (
+                      <ManhwaCard key={manhwa.slug} manhwa={manhwa} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {manhwaList.map((manhwa, index) => {
+                      const cleanTitle = (manhwa.manhwaTitle || manhwa.title)
+                        .replace(/^Komik\s+/i, '')
+                        .replace(/\s+Bahasa Indonesia$/i, '')
+                        .trim()
+                      const cleanSlug = manhwa.slug.replace(/-bahasa-indonesia$/, '')
+                      
+                      return (
+                        <Link
+                          key={manhwa.slug}
+                          href={`/manhwa/${cleanSlug}`}
+                          className="flex items-center gap-4 p-3 bg-white dark:bg-dark-800 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors group"
+                        >
+                          <span className="text-gray-500 dark:text-gray-400 font-mono text-sm w-8 text-right flex-shrink-0">
+                            {((page - 1) * 30 + index + 1).toString().padStart(2, '0')}
+                          </span>
+                          <h3 className="font-medium text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors flex-1">
+                            {cleanTitle}
+                          </h3>
+                          {manhwa.status && (
+                            <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ${
+                              manhwa.status.toLowerCase().includes('ongoing')
+                                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                                : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                            }`}>
+                              {manhwa.status}
+                            </span>
+                          )}
+                          {manhwa.totalChapters && (
+                            <span className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+                              {manhwa.totalChapters} Ch
+                            </span>
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -364,7 +466,6 @@ function AdvancedSearchContent() {
           </div>
         </div>
       </div>
-    </div>
   )
 }
 

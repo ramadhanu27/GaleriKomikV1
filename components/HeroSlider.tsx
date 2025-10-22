@@ -30,23 +30,11 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
           autoplay: true,
           autoplayTimeout: 5000,
           autoplayHoverPause: true,
-          nav: true,
+          nav: false,
           dots: true,
-          navText: [
-            '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>',
-            '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>'
-          ],
           animateOut: 'fadeOut',
           animateIn: 'fadeIn',
-          smartSpeed: 1000,
-          responsive: {
-            0: {
-              nav: false
-            },
-            768: {
-              nav: true
-            }
-          }
+          smartSpeed: 1000
         })
       }
     }
@@ -138,37 +126,6 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
       </div>
 
       <style jsx global>{`
-        .hero-slider .owl-nav {
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 100%;
-          display: flex;
-          justify-content: space-between;
-          padding: 0 20px;
-          pointer-events: none;
-        }
-
-        .hero-slider .owl-nav button {
-          pointer-events: all;
-          background: rgba(255, 255, 255, 0.2) !important;
-          backdrop-filter: blur(10px);
-          border-radius: 50%;
-          width: 50px;
-          height: 50px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white !important;
-          transition: all 0.3s;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .hero-slider .owl-nav button:hover {
-          background: rgba(255, 255, 255, 0.3) !important;
-          transform: scale(1.1);
-        }
-
         .hero-slider .owl-dots {
           position: absolute;
           bottom: 20px;

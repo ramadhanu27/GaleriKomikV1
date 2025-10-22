@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
+import { getProxiedImageUrl } from '@/lib/imageProxy'
 
 interface ChapterData {
   chapter: any
@@ -37,6 +38,12 @@ export default function ChapterPage() {
 
   useEffect(() => {
     const handleScroll = () => {
+      // Always show nav when autoscroll is active
+      if (autoScroll) {
+        setShowNav(true)
+        return
+      }
+
       const currentScrollY = window.scrollY
       
       if (currentScrollY > lastScrollY && currentScrollY > 100) {
@@ -55,7 +62,7 @@ export default function ChapterPage() {
     return () => {
       window.removeEventListener('scroll', handleScroll)
     }
-  }, [lastScrollY])
+  }, [lastScrollY, autoScroll])
 
   useEffect(() => {
     if (autoScroll) {
@@ -150,138 +157,170 @@ export default function ChapterPage() {
   }
 
   return (
-    <div className="py-8" onClick={handlePageClick}>
-      <div className="container-custom max-w-4xl">
-        {/* Header */}
-        <div className="card p-6 mb-6">
-          <Link
-            href={`/manhwa/${slug}`}
-            className="text-primary-600 dark:text-primary-400 hover:underline mb-2 inline-block"
-          >
-            ← Kembali ke Detail
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {chapter.title || `Chapter ${chapter.number}`}
-          </h1>
-          {chapter.date && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {chapter.date}
-            </p>
-          )}
-        </div>
+    <div className="bg-slate-950 min-h-screen" onClick={handlePageClick}>
+      {/* Top Navigation Bar */}
+      <div className={`fixed top-0 left-0 right-0 bg-gradient-to-b from-slate-900/95 to-slate-900/80 backdrop-blur-md border-b border-slate-800 shadow-xl z-40 transition-transform duration-300 ${
+        showNav ? 'translate-y-0' : '-translate-y-full'
+      }`}>
+        <div className="container-custom max-w-5xl">
+          <div className="flex items-center justify-between p-4">
+            <Link
+              href={`/manhwa/${slug}`}
+              className="flex items-center gap-2 text-slate-300 hover:text-primary-400 transition-colors group"
+            >
+              <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="font-medium">Kembali</span>
+            </Link>
+            
+            <div className="flex-1 mx-4 text-center">
+              <h1 className="text-lg font-bold text-white truncate">
+                {chapter.title || `Chapter ${chapter.number}`}
+              </h1>
+              {chapter.date && (
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {chapter.date}
+                </p>
+              )}
+            </div>
 
-        {/* Chapter Images */}
-        <div className="space-y-2 mb-6 flex flex-col items-center">
+            <Link
+              href="/"
+              className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Chapter Images */}
+      <div className="pt-20 pb-24">
+        <div className="max-w-4xl mx-auto" style={{ zoom: '67%' }}>
           {images.length > 0 ? (
-            images.map((image: any, index: number) => {
-              const imageUrl = typeof image === 'string' ? image : image.url
-              return (
-                <div key={index} className="relative w-full md:w-[77%]">
-                  <img
-                    src={imageUrl}
-                    alt={`Page ${index + 1}`}
-                    className="w-full h-auto"
-                    loading={index < 3 ? 'eager' : 'lazy'}
-                  />
-                </div>
-              )
-            })
+            <div className="space-y-0">
+              {images.map((image: any, index: number) => {
+                const originalUrl = typeof image === 'string' ? image : image.url
+                const imageUrl = getProxiedImageUrl(originalUrl)
+                return (
+                  <div key={index} className="relative w-full">
+                    <img
+                      src={imageUrl}
+                      alt={`Page ${index + 1}`}
+                      className="w-full h-auto"
+                      loading={index < 3 ? 'eager' : 'lazy'}
+                    />
+                    {/* Page Number Overlay */}
+                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                      <span className="text-white text-sm font-medium">
+                        {index + 1} / {images.length}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           ) : (
-            <div className="card p-8 text-center">
-              <p className="text-gray-600 dark:text-gray-400">
-                Gambar chapter belum tersedia
-              </p>
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="bg-slate-800/50 rounded-xl p-8 text-center border border-slate-700">
+                <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p className="text-slate-400">
+                  Gambar chapter belum tersedia
+                </p>
+              </div>
             </div>
           )}
         </div>
-
-        {/* Spacer for fixed bottom navigation */}
-        <div className="h-20"></div>
       </div>
 
       {/* Fixed Bottom Navigation */}
-      <div className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-800 border-t border-gray-200 dark:border-dark-700 shadow-lg z-40 transition-transform duration-300 ${
+      <div className={`fixed bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/95 to-slate-900/80 backdrop-blur-md border-t border-slate-800 shadow-2xl z-40 transition-transform duration-300 ${
         showNav ? 'translate-y-0' : 'translate-y-full'
       }`}>
-        <div className="container-custom max-w-4xl">
-          <div className="flex items-center justify-between gap-1 sm:gap-2 p-3">
-            {/* Home Button */}
-            <Link
-              href="/"
-              className="flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-dark-700 hover:bg-gray-300 dark:hover:bg-dark-600 rounded-lg transition-colors"
-              title="Home"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span className="hidden md:inline text-sm">Home</span>
-            </Link>
-
+        <div className="container-custom max-w-5xl">
+          <div className="flex items-center justify-center gap-2 p-4">
             {/* Previous Button */}
             <button
               onClick={handlePrevChapter}
               disabled={!chapterData.navigation.prev}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-dark-700 hover:bg-gray-300 dark:hover:bg-dark-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg"
               title="Previous Chapter"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              <span className="hidden md:inline text-sm">Prev</span>
+              <span className="hidden sm:inline font-medium">Prev</span>
             </button>
 
             {/* Auto Scroll Button */}
             <button
-              onClick={() => setAutoScroll(!autoScroll)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                autoScroll 
-                  ? 'bg-primary-600 text-white hover:bg-primary-700' 
-                  : 'bg-gray-200 dark:bg-dark-700 hover:bg-gray-300 dark:hover:bg-dark-600'
+              onClick={() => setAutoScroll(true)}
+              disabled={autoScroll}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all shadow-lg ${
+                autoScroll
+                  ? 'bg-primary-600 text-white cursor-default'
+                  : 'bg-slate-800 hover:bg-slate-700 text-white'
               }`}
-              title="Auto Scroll"
+              title="Start Auto Scroll"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {autoScroll ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                )}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
-              <span className="hidden md:inline text-sm">{autoScroll ? 'Stop' : 'Auto'}</span>
+              <span className="hidden sm:inline font-medium">Auto</span>
             </button>
+
+            {/* Stop Button - Only visible when autoscroll is active */}
+            {autoScroll && (
+              <button
+                onClick={() => setAutoScroll(false)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-lg animate-pulse"
+                title="Stop Auto Scroll"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                </svg>
+                <span className="hidden sm:inline font-medium">Stop</span>
+              </button>
+            )}
 
             {/* Speed Settings Button */}
             <button
               onClick={() => setShowSpeedSettings(!showSpeedSettings)}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-dark-700 hover:bg-gray-300 dark:hover:bg-dark-600 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all shadow-lg"
               title="Speed Settings"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              <span className="hidden md:inline text-sm">Speed</span>
+              <span className="hidden sm:inline font-medium">Speed</span>
             </button>
 
             {/* Chapter List Button */}
             <button
               onClick={() => setShowChapterList(!showChapterList)}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-dark-700 hover:bg-gray-300 dark:hover:bg-dark-600 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all shadow-lg"
               title="Chapter List"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              <span className="hidden md:inline text-sm">List</span>
+              <span className="hidden sm:inline font-medium">List</span>
             </button>
 
             {/* Next Button */}
             <button
               onClick={handleNextChapter}
               disabled={!chapterData.navigation.next}
-              className="flex items-center gap-2 px-3 py-2 bg-primary-600 text-white hover:bg-primary-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-900/30"
               title="Next Chapter"
             >
-              <span className="hidden md:inline text-sm">Next</span>
+              <span className="hidden sm:inline font-medium">Next</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>

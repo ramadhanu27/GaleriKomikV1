@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Don't use output: 'export' - mobile app will use live server
   images: {
     remotePatterns: [
       {
@@ -12,6 +11,14 @@ const nextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react'],
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/img-proxy/:path*',
+        destination: 'https://img.komiku.org/:path*',
+      },
+    ]
   },
 }
 
