@@ -5,11 +5,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
+import { useAuth } from '@/contexts/AuthContext'
+import AuthModal from './AuthModal'
 
 export default function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const { theme, toggleTheme } = useTheme()
+  const { user, signOut } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -17,6 +20,8 @@ export default function Header() {
   const [lastScrollY, setLastScrollY] = useState(0)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   const isChapterPage = pathname?.includes('/chapter/')
   const isActive = (path: string) => pathname === path
@@ -147,6 +152,84 @@ export default function Header() {
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Auth Buttons */}
+            {user ? (
+              <div className="relative hidden md:block">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-300 hover:text-white"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">
+                      {user.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-sm font-medium">{user.username || user.email?.split('@')[0]}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 py-2 z-50">
+                    <Link
+                      href="/profile"
+                      className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Profil
+                    </Link>
+                    <Link
+                      href="/bookmark"
+                      className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      Bookmark
+                    </Link>
+                    <Link
+                      href="/history"
+                      className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Riwayat
+                    </Link>
+                    <div className="border-t border-slate-700 my-2"></div>
+                    <button
+                      onClick={() => {
+                        signOut()
+                        setShowUserMenu(false)
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-slate-700/50 hover:text-red-300 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="hidden md:flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all shadow-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                Masuk
+              </button>
+            )}
+
             <button
               onClick={toggleTheme}
               className="p-2.5 hover:bg-slate-700/50 rounded-lg transition-all text-slate-300 hover:text-white"
@@ -277,6 +360,12 @@ export default function Header() {
         )}
       </nav>
     </header>
+
+    {/* Auth Modal */}
+    <AuthModal
+      isOpen={showAuthModal}
+      onClose={() => setShowAuthModal(false)}
+    />
     </>
   )
 }

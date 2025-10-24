@@ -18,6 +18,10 @@ const nextConfig = {
         source: '/img-proxy/:path*',
         destination: 'https://img.komiku.org/:path*',
       },
+      {
+        source: '/thumbnail-proxy/:path*',
+        destination: 'https://thumbnail.komiku.org/:path*',
+      },
     ]
   },
 }

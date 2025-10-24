@@ -1,0 +1,157 @@
+'use client'
+
+import { createContext, useContext, useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { User, getCurrentUser } from '@/lib/auth'
+
+interface AuthContextType {
+  user: User | null
+  loading: boolean
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  signUp: (email: string, password: string, username: string) => Promise<{ success: boolean; error?: string }>
+  signOut: () => Promise<void>
+  refreshUser: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Check active session
+    checkUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        await checkUser()
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const checkUser = async () => {
+    try {
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
+    } catch (error) {
+      console.error('Error checking user:', error)
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const signIn = async (emailOrUsername: string, password: string) => {
+    try {
+      let email = emailOrUsername
+      
+      // Check if input is username
+      if (!emailOrUsername.includes('@')) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('email')
+          .eq('username', emailOrUsername)
+          .single()
+        
+        if (userError || !userData) {
+          return { success: false, error: 'Username tidak ditemukan' }
+        }
+        
+        email = userData.email
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        return { success: false, error: 'Email/Username atau password salah' }
+      }
+
+      // Set user immediately from auth data (faster)
+      if (data.user) {
+        setUser({
+          id: data.user.id,
+          email: data.user.email!,
+          username: data.user.user_metadata?.username,
+          avatar_url: data.user.user_metadata?.avatar_url,
+          created_at: data.user.created_at,
+        })
+      }
+
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  const signUp = async (email: string, password: string, username: string) => {
+    try {
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { username },
+        },
+      })
+
+      if (signUpError) {
+        return { success: false, error: signUpError.message }
+      }
+
+      if (!authData.user) {
+        return { success: false, error: 'Failed to create user' }
+      }
+
+      // Create user profile
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: authData.user.email,
+          username,
+        })
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
+      }
+
+      await checkUser()
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+  }
+
+  const refreshUser = async () => {
+    await checkUser()
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, refreshUser }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}

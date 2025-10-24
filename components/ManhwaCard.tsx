@@ -4,6 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Manhwa } from '@/types'
 import { getThumbnail } from '@/lib/imageOptimizer'
+import { getFlagByType, getCountryByType } from '@/lib/getFlagByType'
+import { getProxiedImageUrl } from '@/lib/imageProxy'
 
 interface ManhwaCardProps {
   manhwa: Manhwa
@@ -26,9 +28,9 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
     .trim()
   const cleanSlug = manhwa.slug.replace(/-bahasa-indonesia$/, '')
   
-  // Use CDN optimized image if it's a Supabase URL, otherwise use original
+  // Use CDN optimized image if it's a Supabase URL, otherwise use proxy for komiku.org
   const displayImage = manhwa.image.includes('thumbnail.komiku.org') || manhwa.image.includes('komiku.org')
-    ? manhwa.image // External URL, use as is
+    ? getProxiedImageUrl(manhwa.image) // External URL from komiku.org, use proxy
     : getThumbnail(manhwa.image) // Supabase storage, use CDN
   
   // Sort chapters by number (descending) to get latest first
@@ -67,11 +69,11 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
         
         {/* Badges Overlay */}
         <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
-          {/* Korea Badge */}
+          {/* Country Flag Badge */}
           <div className="w-8 h-8 overflow-hidden shadow-lg">
             <img
-              src="/korea.png"
-              alt="Korea"
+              src={getFlagByType(manhwa.type)}
+              alt={getCountryByType(manhwa.type)}
               className="w-full h-full object-contain"
             />
           </div>

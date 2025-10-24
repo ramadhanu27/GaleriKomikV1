@@ -2,22 +2,35 @@
  * Convert external image URL to use local proxy
  * Example: https://img.komiku.org/upload5/king-of-drama/95/2025-05-17/2.webp
  * Becomes: /img-proxy/upload5/king-of-drama/95/2025-05-17/2.webp
+ * 
+ * Also handles: https://thumbnail.komiku.org/img/upload/...
+ * Becomes: /thumbnail-proxy/img/upload/...
  */
 export function getProxiedImageUrl(imageUrl: string): string {
   if (!imageUrl) return imageUrl
   
-  // Check if it's from img.komiku.org
-  if (imageUrl.includes('img.komiku.org')) {
-    // Extract the path after img.komiku.org
+  try {
     const url = new URL(imageUrl)
-    const path = url.pathname // e.g., /upload5/king-of-drama/95/2025-05-17/2.webp
     
-    // Return proxied URL
-    return `/img-proxy${path}`
+    // Check if it's from thumbnail.komiku.org
+    if (url.hostname === 'thumbnail.komiku.org') {
+      // Keep query params for thumbnail (e.g., ?w=500)
+      const path = url.pathname + url.search
+      return `/thumbnail-proxy${path}`
+    }
+    
+    // Check if it's from img.komiku.org
+    if (url.hostname === 'img.komiku.org') {
+      const path = url.pathname
+      return `/img-proxy${path}`
+    }
+    
+    // Return original URL if not from komiku.org
+    return imageUrl
+  } catch (error) {
+    // If URL parsing fails, return original
+    return imageUrl
   }
-  
-  // Return original URL if not from img.komiku.org
-  return imageUrl
 }
 
 /**

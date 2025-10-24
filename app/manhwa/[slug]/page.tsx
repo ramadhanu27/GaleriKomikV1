@@ -5,8 +5,12 @@ import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getCover } from '@/lib/imageOptimizer'
+import { getFlagByType, getCountryByType } from '@/lib/getFlagByType'
+import { getProxiedImageUrl } from '@/lib/imageProxy'
 import ChapterGrid from '@/components/ChapterGrid'
 import RecommendedManhwa from '@/components/RecommendedManhwa'
+import BookmarkButton from '@/components/BookmarkButton'
+import AuthModal from '@/components/AuthModal'
 
 interface ManhwaDetail {
   title: string
@@ -32,6 +36,7 @@ export default function ManhwaDetailPage() {
   const slug = params.slug as string
   const [manhwa, setManhwa] = useState<ManhwaDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
   useEffect(() => {
     fetchManhwaDetail()
@@ -90,7 +95,7 @@ export default function ManhwaDetailPage() {
           <div 
             className="absolute inset-0 blur-3xl opacity-20"
             style={{
-              backgroundImage: `url(${manhwa.image.includes('komiku.org') ? manhwa.image : getCover(manhwa.image)})`,
+              backgroundImage: `url(${manhwa.image.includes('komiku.org') ? getProxiedImageUrl(manhwa.image) : getCover(manhwa.image)})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center'
             }}
@@ -103,7 +108,7 @@ export default function ManhwaDetailPage() {
               <div className="relative w-full md:w-64 lg:w-72 flex-shrink-0 mx-auto md:mx-0">
                 <div className="relative rounded-xl overflow-hidden shadow-2xl ring-4 ring-slate-700/50">
                   <img
-                    src={manhwa.image.includes('komiku.org') ? manhwa.image : getCover(manhwa.image)}
+                    src={manhwa.image.includes('komiku.org') ? getProxiedImageUrl(manhwa.image) : getCover(manhwa.image)}
                     alt={manhwa.manhwaTitle || manhwa.title}
                     className="w-full h-auto object-cover"
                   />
@@ -111,8 +116,8 @@ export default function ManhwaDetailPage() {
                   {/* Badges Overlay */}
                   <div className="absolute top-3 left-3 flex flex-col gap-2">
                     <img
-                      src="/korea.png"
-                      alt="Korea"
+                      src={getFlagByType(manhwa.type)}
+                      alt={getCountryByType(manhwa.type)}
                       className="w-12 h-12 shadow-xl rounded-lg"
                     />
                     {manhwa.status && (
@@ -241,6 +246,15 @@ export default function ManhwaDetailPage() {
                       )}
                     </>
                   )}
+                  
+                  {/* Bookmark Button */}
+                  <BookmarkButton
+                    manhwaSlug={slug}
+                    manhwaTitle={manhwa.manhwaTitle || manhwa.title}
+                    manhwaImage={manhwa.image}
+                    manhwaType={manhwa.type}
+                    onAuthRequired={() => setShowAuthModal(true)}
+                  />
                 </div>
               </div>
             </div>
@@ -286,6 +300,12 @@ export default function ManhwaDetailPage() {
         {/* Recommended Manhwa */}
         <RecommendedManhwa currentManhwa={{ genres: manhwa.genres, slug: manhwa.slug }} />
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   )
 }
