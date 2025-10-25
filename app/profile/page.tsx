@@ -55,26 +55,40 @@ export default function ProfilePage() {
       return
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Ukuran file maksimal 2MB')
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Ukuran file maksimal 5MB')
       return
     }
 
     setUploading(true)
     setError('')
+    setMessage('')
 
-    const result = await uploadAvatar(user.id, file)
+    try {
+      // Upload avatar
+      const result = await uploadAvatar(user.id, file)
 
-    if (result.success && result.url) {
-      setAvatarUrl(result.url)
-      await updateProfile(user.id, { avatar_url: result.url })
-      await refreshUser()
-      setMessage('Foto profil berhasil diupdate!')
-    } else {
-      setError(result.error || 'Gagal upload foto')
+      if (result.success && result.url) {
+        // Update profile with new avatar URL
+        const updateResult = await updateProfile(user.id, { avatar_url: result.url })
+        
+        if (updateResult.success) {
+          setAvatarUrl(result.url)
+          // Refresh user data
+          await refreshUser()
+          setMessage('Foto profil berhasil diupdate!')
+        } else {
+          setError(updateResult.error || 'Gagal update profil')
+        }
+      } else {
+        setError(result.error || 'Gagal upload foto')
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error)
+      setError('Terjadi kesalahan saat upload')
+    } finally {
+      setUploading(false)
     }
-
-    setUploading(false)
   }
 
   const handleUpdateProfile = async (e: React.FormEvent) => {

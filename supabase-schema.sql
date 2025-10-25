@@ -172,6 +172,55 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
 -- ============================================
+-- COMMENTS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.comments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  manhwa_slug TEXT NOT NULL,
+  chapter_id TEXT,
+  comment_text TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for faster queries
+CREATE INDEX IF NOT EXISTS idx_comments_manhwa_slug ON public.comments(manhwa_slug);
+CREATE INDEX IF NOT EXISTS idx_comments_chapter_id ON public.comments(chapter_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user_id ON public.comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_comments_created_at ON public.comments(created_at DESC);
+
+-- Enable Row Level Security
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can read comments
+CREATE POLICY "Anyone can read comments"
+  ON public.comments
+  FOR SELECT
+  USING (true);
+
+-- Authenticated users can create comments
+CREATE POLICY "Authenticated users can create comments"
+  ON public.comments
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own comments
+CREATE POLICY "Users can update own comments"
+  ON public.comments
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Users can delete their own comments
+CREATE POLICY "Users can delete own comments"
+  ON public.comments
+  FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- ============================================
 -- STORAGE BUCKET FOR AVATARS
 -- ============================================
 

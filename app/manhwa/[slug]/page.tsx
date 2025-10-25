@@ -11,6 +11,7 @@ import ChapterGrid from '@/components/ChapterGrid'
 import RecommendedManhwa from '@/components/RecommendedManhwa'
 import BookmarkButton from '@/components/BookmarkButton'
 import AuthModal from '@/components/AuthModal'
+import CommentSection from '@/components/CommentSection'
 
 interface ManhwaDetail {
   title: string
@@ -295,6 +296,14 @@ export default function ManhwaDetailPage() {
               <p className="text-slate-400">Belum ada chapter tersedia</p>
             </div>
           )}
+        </div>
+
+        {/* Comment Section */}
+        <div className="mb-8">
+          <CommentSection
+            manhwaSlug={slug}
+            onAuthRequired={() => setShowAuthModal(true)}
+          />
         </div>
 
         {/* Recommended Manhwa */}
