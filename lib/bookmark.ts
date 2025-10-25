@@ -21,34 +21,26 @@ export async function addBookmark(
   manhwaType?: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    // Check if already bookmarked
-    const { data: existing } = await supabase
-      .from('bookmarks')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('manhwa_slug', manhwaSlug)
-      .single()
-
-    if (existing) {
-      return { success: false, error: 'Already bookmarked' }
-    }
-
-    // Add bookmark
+    // Use upsert for faster operation
     const { error } = await supabase
       .from('bookmarks')
-      .insert({
+      .upsert({
         user_id: userId,
         manhwa_slug: manhwaSlug,
         manhwa_title: manhwaTitle,
         manhwa_image: manhwaImage,
         manhwa_type: manhwaType,
+        created_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id,manhwa_slug',
+        ignoreDuplicates: false
       })
 
     if (error) {
       return { success: false, error: error.message }
     }
 
-    return { success: true, message: 'Bookmark added!' }
+    return { success: true, message: 'Bookmark berhasil ditambahkan' }
   } catch (error: any) {
     return { success: false, error: error.message }
   }
