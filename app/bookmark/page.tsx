@@ -13,8 +13,10 @@ export default function BookmarkPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && user) {
       fetchBookmarks()
+    } else if (!authLoading && !user) {
+      setLoading(false)
     }
   }, [user, authLoading])
 
@@ -24,7 +26,6 @@ export default function BookmarkPage() {
       return
     }
 
-    setLoading(true)
     const data = await getUserBookmarks(user.id)
     setBookmarks(data)
     setLoading(false)

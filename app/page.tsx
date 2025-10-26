@@ -14,7 +14,7 @@ export default function Home() {
   const [loadingPopular, setLoadingPopular] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 12
+  const itemsPerPage = 15
 
   useEffect(() => {
     fetchManhwa()
@@ -188,15 +188,36 @@ export default function Home() {
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
-                {manhwaList
-                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                  .map((manhwa, index) => (
-                    <ManhwaCard 
-                      key={`${manhwa.slug}-${currentPage}-${index}`} 
-                      manhwa={manhwa} 
-                      showNewBadge={true} 
-                    />
-                  ))}
+                {(() => {
+                  const currentItems = manhwaList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  const placeholderCount = Math.max(0, itemsPerPage - currentItems.length)
+                  
+                  return (
+                    <>
+                      {currentItems.map((manhwa, index) => (
+                        <ManhwaCard 
+                          key={`${manhwa.slug}-${currentPage}-${index}`} 
+                          manhwa={manhwa} 
+                          showNewBadge={true} 
+                        />
+                      ))}
+                      {/* Placeholder cards for empty slots */}
+                      {Array.from({ length: placeholderCount }).map((_, index) => (
+                        <div 
+                          key={`placeholder-${index}`} 
+                          className="aspect-[2/3] rounded-lg border-2 border-dashed border-slate-700/50 bg-slate-800/20 flex items-center justify-center"
+                        >
+                          <div className="text-center p-4">
+                            <svg className="w-12 h-12 mx-auto text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            <p className="text-xs text-slate-500">Coming Soon</p>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )
+                })()}
               </div>
 
               {/* Pagination */}

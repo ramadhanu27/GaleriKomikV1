@@ -41,19 +41,51 @@ export default function CommentSection({ manhwaSlug, onAuthRequired }: CommentSe
       return
     }
 
+    const trimmedComment = commentText.trim()
+    
+    // Optimistic UI update - show comment immediately
+    const tempComment: Comment = {
+      id: `temp-${Date.now()}`,
+      user_id: user.id,
+      manhwa_slug: manhwaSlug,
+      comment_text: trimmedComment,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      user: {
+        username: user.username || user.email?.split('@')[0] || 'User',
+        avatar_url: user.avatar_url
+      }
+    }
+
+    // Add to UI immediately
+    setComments([tempComment, ...comments])
+    setCommentText('')
     setSubmitting(true)
     setError('')
 
-    const result = await addComment(user.id, manhwaSlug, commentText.trim())
+    // Send to server in background
+    try {
+      const result = await addComment(user.id, manhwaSlug, trimmedComment)
 
-    if (result.success && result.comment) {
-      setComments([result.comment, ...comments])
-      setCommentText('')
-    } else {
-      setError(result.error || 'Gagal mengirim komentar')
+      if (result.success && result.comment) {
+        // Replace temp comment with real one
+        setComments(prev => 
+          prev.map(c => c.id === tempComment.id ? result.comment! : c)
+        )
+      } else {
+        // Remove temp comment on error
+        setComments(prev => prev.filter(c => c.id !== tempComment.id))
+        setError(result.error || 'Gagal mengirim komentar')
+        setCommentText(trimmedComment) // Restore text
+      }
+    } catch (error) {
+      // Remove temp comment on error
+      setComments(prev => prev.filter(c => c.id !== tempComment.id))
+      setError('Terjadi kesalahan saat mengirim komentar')
+      setCommentText(trimmedComment) // Restore text
+    } finally {
+      setSubmitting(false)
     }
-
-    setSubmitting(false)
   }
 
   const handleDelete = async (commentId: string) => {

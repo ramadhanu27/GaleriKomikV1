@@ -14,8 +14,10 @@ export default function HistoryPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && user) {
       fetchHistory()
+    } else if (!authLoading && !user) {
+      setLoading(false)
     }
   }, [user, authLoading])
 
@@ -25,7 +27,6 @@ export default function HistoryPage() {
       return
     }
 
-    setLoading(true)
     const data = await getReadingHistory(user.id)
     setHistory(data)
     setLoading(false)
