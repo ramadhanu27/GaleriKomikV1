@@ -176,7 +176,9 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.comments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID NOT NULL,
+  username TEXT NOT NULL,
+  avatar_url TEXT,
   manhwa_slug TEXT NOT NULL,
   chapter_id TEXT,
   comment_text TEXT NOT NULL,

@@ -24,26 +24,48 @@ export async function addComment(
   chapterId?: string
 ): Promise<{ success: boolean; comment?: Comment; error?: string }> {
   try {
-    const { data, error } = await supabase
+    // Get user data from auth first
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      console.error('User error:', userError)
+      return { success: false, error: 'User not found' }
+    }
+
+    const username = user.user_metadata?.username || user.email?.split('@')[0] || 'User'
+    const avatarUrl = user.user_metadata?.avatar_url
+
+    // Insert comment with user data
+    const { data: commentData, error: insertError } = await supabase
       .from('comments')
       .insert({
         user_id: userId,
+        username: username,
+        avatar_url: avatarUrl,
         manhwa_slug: manhwaSlug,
         chapter_id: chapterId,
         comment_text: commentText,
       })
-      .select(`
-        *,
-        user:users(username, avatar_url)
-      `)
+      .select()
       .single()
 
-    if (error) {
-      return { success: false, error: error.message }
+    if (insertError) {
+      console.error('Insert error:', insertError)
+      return { success: false, error: insertError.message }
     }
 
-    return { success: true, comment: data }
+    // Format comment with user object
+    const comment: Comment = {
+      ...commentData,
+      user: {
+        username: commentData.username,
+        avatar_url: commentData.avatar_url
+      }
+    }
+
+    return { success: true, comment }
   } catch (error: any) {
+    console.error('Add comment error:', error)
     return { success: false, error: error.message }
   }
 }
@@ -56,12 +78,9 @@ export async function getManhwaComments(
   limit: number = 50
 ): Promise<Comment[]> {
   try {
-    const { data, error } = await supabase
+    const { data: comments, error } = await supabase
       .from('comments')
-      .select(`
-        *,
-        user:users(username, avatar_url)
-      `)
+      .select('*')
       .eq('manhwa_slug', manhwaSlug)
       .is('chapter_id', null)
       .order('created_at', { ascending: false })
@@ -72,7 +91,20 @@ export async function getManhwaComments(
       return []
     }
 
-    return data || []
+    if (!comments || comments.length === 0) {
+      return []
+    }
+
+    // Format comments with user object
+    const commentsWithUsers: Comment[] = comments.map(comment => ({
+      ...comment,
+      user: {
+        username: comment.username || 'User',
+        avatar_url: comment.avatar_url
+      }
+    }))
+
+    return commentsWithUsers
   } catch (error) {
     console.error('Error fetching comments:', error)
     return []
@@ -88,12 +120,9 @@ export async function getChapterComments(
   limit: number = 50
 ): Promise<Comment[]> {
   try {
-    const { data, error } = await supabase
+    const { data: comments, error } = await supabase
       .from('comments')
-      .select(`
-        *,
-        user:users(username, avatar_url)
-      `)
+      .select('*')
       .eq('manhwa_slug', manhwaSlug)
       .eq('chapter_id', chapterId)
       .order('created_at', { ascending: false })
@@ -104,7 +133,20 @@ export async function getChapterComments(
       return []
     }
 
-    return data || []
+    if (!comments || comments.length === 0) {
+      return []
+    }
+
+    // Format comments with user object
+    const commentsWithUsers: Comment[] = comments.map(comment => ({
+      ...comment,
+      user: {
+        username: comment.username || 'User',
+        avatar_url: comment.avatar_url
+      }
+    }))
+
+    return commentsWithUsers
   } catch (error) {
     console.error('Error fetching comments:', error)
     return []

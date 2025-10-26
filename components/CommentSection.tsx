@@ -60,13 +60,10 @@ export default function CommentSection({ manhwaSlug, onAuthRequired }: CommentSe
     // Add to UI immediately
     setComments([tempComment, ...comments])
     setCommentText('')
-    setSubmitting(true)
     setError('')
 
-    // Send to server in background
-    try {
-      const result = await addComment(user.id, manhwaSlug, trimmedComment)
-
+    // Send to server in background (don't block UI)
+    addComment(user.id, manhwaSlug, trimmedComment).then(result => {
       if (result.success && result.comment) {
         // Replace temp comment with real one
         setComments(prev => 
@@ -78,14 +75,12 @@ export default function CommentSection({ manhwaSlug, onAuthRequired }: CommentSe
         setError(result.error || 'Gagal mengirim komentar')
         setCommentText(trimmedComment) // Restore text
       }
-    } catch (error) {
+    }).catch(error => {
       // Remove temp comment on error
       setComments(prev => prev.filter(c => c.id !== tempComment.id))
       setError('Terjadi kesalahan saat mengirim komentar')
       setCommentText(trimmedComment) // Restore text
-    } finally {
-      setSubmitting(false)
-    }
+    })
   }
 
   const handleDelete = async (commentId: string) => {

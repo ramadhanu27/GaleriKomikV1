@@ -68,10 +68,10 @@ export default function Home() {
       const data = await response.json()
       
       if (data.success) {
-        // Sort by rating and get top 12
+        // Sort by rating and get top 15
         const sorted = [...data.data.manhwa]
           .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-          .slice(0, 12)
+          .slice(0, 15)
         
         setPopularList(sorted)
       }
@@ -146,6 +146,20 @@ export default function Home() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {popularList.map((manhwa) => (
                 <ManhwaCard key={manhwa.slug} manhwa={manhwa} showNewBadge={false} />
+              ))}
+              {/* Placeholder cards for empty slots */}
+              {Array.from({ length: Math.max(0, 15 - popularList.length) }).map((_, index) => (
+                <div 
+                  key={`placeholder-popular-${index}`} 
+                  className="aspect-[2/3] rounded-lg border-2 border-dashed border-slate-700/50 bg-slate-800/20 flex items-center justify-center"
+                >
+                  <div className="text-center p-4">
+                    <svg className="w-12 h-12 mx-auto text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <p className="text-xs text-slate-500">Coming Soon</p>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
