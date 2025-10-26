@@ -223,6 +223,91 @@ CREATE POLICY "Users can delete own comments"
   USING (auth.uid() = user_id);
 
 -- ============================================
+-- MANHWA VIEWS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.manhwa_views (
+  manhwa_slug TEXT PRIMARY KEY,
+  total_views INTEGER DEFAULT 0,
+  unique_views INTEGER DEFAULT 0,
+  last_viewed TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_manhwa_views_total ON public.manhwa_views(total_views DESC);
+CREATE INDEX IF NOT EXISTS idx_manhwa_views_unique ON public.manhwa_views(unique_views DESC);
+
+-- Enable RLS
+ALTER TABLE public.manhwa_views ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can read views
+CREATE POLICY "Anyone can read views"
+  ON public.manhwa_views FOR SELECT USING (true);
+
+-- ============================================
+-- USER VIEWS TABLE (Track unique views)
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.user_views (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL,
+  manhwa_slug TEXT NOT NULL,
+  viewed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, manhwa_slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_views_user ON public.user_views(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_views_manhwa ON public.user_views(manhwa_slug);
+
+-- Enable RLS
+ALTER TABLE public.user_views ENABLE ROW LEVEL SECURITY;
+
+-- Users can read own views
+CREATE POLICY "Users can read own views"
+  ON public.user_views FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Users can insert own views
+CREATE POLICY "Users can insert own views"
+  ON public.user_views FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- ============================================
+-- ISSUE REPORTS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.issue_reports (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL,
+  manhwa_slug TEXT NOT NULL,
+  manhwa_title TEXT NOT NULL,
+  chapter_id TEXT,
+  issue_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  resolved_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_status ON public.issue_reports(status);
+CREATE INDEX IF NOT EXISTS idx_reports_manhwa ON public.issue_reports(manhwa_slug);
+CREATE INDEX IF NOT EXISTS idx_reports_user ON public.issue_reports(user_id);
+
+-- Enable RLS
+ALTER TABLE public.issue_reports ENABLE ROW LEVEL SECURITY;
+
+-- Users can read own reports
+CREATE POLICY "Users can read own reports"
+  ON public.issue_reports FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Users can create reports
+CREATE POLICY "Users can create reports"
+  ON public.issue_reports FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- ============================================
 -- STORAGE BUCKET FOR AVATARS
 -- ============================================
 
