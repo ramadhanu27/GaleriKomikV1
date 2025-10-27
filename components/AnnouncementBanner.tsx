@@ -15,11 +15,25 @@ export default function AnnouncementBanner() {
   const [isVisible, setIsVisible] = useState(false)
   const [announcements] = useState<Announcement[]>([
     {
-      id: 'update-2025-10',
-      title: '🎉 Update Website Terbaru!',
-      message: 'Website telah diperbarui dengan UI/UX yang lebih modern, chapter reader yang lebih nyaman, dan performa loading yang lebih cepat!',
+      id: 'update-2025-10-27',
+      title: '🚀 Update Besar-besaran!',
+      message: 'Fitur baru ditambahkan: Chapter Grid 5 kolom untuk navigasi lebih cepat, sistem Like & Reply di komentar, Edit komentar, Sort komentar (Terbaru/Populer), dan performa loading yang jauh lebih cepat dengan retry mechanism!',
       type: 'update',
-      date: '22 Oktober 2025'
+      date: '27 Oktober 2025'
+    },
+    {
+      id: 'feature-comments-2025',
+      title: '💬 Fitur Komentar Enhanced!',
+      message: 'Sekarang kamu bisa: ❤️ Like komentar, 💬 Reply ke komentar lain, ✏️ Edit komentar sendiri, dan 🔄 Sort komentar berdasarkan popularitas. Diskusi jadi lebih seru!',
+      type: 'success',
+      date: '27 Oktober 2025'
+    },
+    {
+      id: 'feature-chapter-grid-2025',
+      title: '📊 Chapter Grid 5 Kolom!',
+      message: 'Daftar chapter sekarang tampil dalam grid 5 kolom (desktop) untuk navigasi lebih cepat. Lihat lebih banyak chapter dalam satu layar, dengan design yang lebih compact dan modern!',
+      type: 'info',
+      date: '27 Oktober 2025'
     }
   ])
 
