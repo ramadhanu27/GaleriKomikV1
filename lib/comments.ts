@@ -8,10 +8,23 @@ export interface Comment {
   comment_text: string
   created_at: string
   updated_at: string
+  parent_id?: string | null
+  likes_count?: number
+  replies_count?: number
+  is_edited?: boolean
   user?: {
     username: string
     avatar_url?: string
   }
+  user_has_liked?: boolean
+  replies?: Comment[]
+}
+
+export interface CommentLike {
+  id: string
+  comment_id: string
+  user_id: string
+  created_at: string
 }
 
 /**
