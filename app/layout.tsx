@@ -19,9 +19,27 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Arkomik - Baca Manhwa Bahasa Indonesia',
-  description: 'Platform terbaik untuk membaca manhwa bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
-  keywords: 'manhwa, komik, webtoon, bahasa indonesia, baca online',
+  metadataBase: new URL('https://www.galerikomik.cyou'),
+  title: {
+    default: 'Arkomik - Baca Manhwa Bahasa Indonesia',
+    template: '%s | Arkomik'
+  },
+  description: 'Platform terbaik untuk membaca manhwa bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari. Baca gratis dengan kualitas HD.',
+  keywords: ['manhwa', 'komik', 'webtoon', 'bahasa indonesia', 'baca online', 'manhwa indo', 'komik online', 'baca gratis'],
+  authors: [{ name: 'Arkomik' }],
+  creator: 'Arkomik',
+  publisher: 'Arkomik',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -35,7 +53,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Arkomik - Baca Manhwa Bahasa Indonesia',
     description: 'Platform terbaik untuk membaca manhwa bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
-    url: 'https://arkomik.vercel.app',
+    url: 'https://www.galerikomik.cyou',
     siteName: 'Arkomik',
     images: [
       {
@@ -54,6 +72,12 @@ export const metadata: Metadata = {
     description: 'Platform terbaik untuk membaca manhwa bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
     images: ['/og-image.png'],
   },
+  alternates: {
+    canonical: 'https://www.galerikomik.cyou',
+  },
+  verification: {
+    google: 'your-google-verification-code',
+  },
 }
 
 export default function RootLayout({
@@ -64,6 +88,13 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
+        {/* Preconnect to external domains */}
+        <link rel="preconnect" href="https://img.komiku.org" />
+        <link rel="preconnect" href="https://thumbnail.komiku.org" />
+        <link rel="dns-prefetch" href="https://img.komiku.org" />
+        <link rel="dns-prefetch" href="https://thumbnail.komiku.org" />
+        
+        {/* Theme script - prevent flash */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -78,13 +109,6 @@ export default function RootLayout({
             `,
           }}
         />
-        {/* Owl Carousel CSS */}
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.theme.default.min.css" />
-        {/* jQuery (required for Owl Carousel) */}
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-        {/* Owl Carousel JS */}
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
       </head>
       <body className={inter.className}>
         <ThemeProvider>

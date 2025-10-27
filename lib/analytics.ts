@@ -7,10 +7,36 @@ export interface ViewStats {
   last_viewed: string
 }
 
+// Debounce tracking to prevent excessive DB calls
+const viewTrackingQueue = new Map<string, NodeJS.Timeout>()
+
 /**
- * Track manhwa view
+ * Track manhwa view with debouncing
  */
 export async function trackManhwaView(manhwaSlug: string, userId?: string): Promise<void> {
+  // Clear existing timeout for this manhwa
+  const existingTimeout = viewTrackingQueue.get(manhwaSlug)
+  if (existingTimeout) {
+    clearTimeout(existingTimeout)
+  }
+
+  // Set new timeout (debounce 2 seconds)
+  const timeout = setTimeout(async () => {
+    try {
+      await trackManhwaViewImmediate(manhwaSlug, userId)
+      viewTrackingQueue.delete(manhwaSlug)
+    } catch (error) {
+      console.error('Error tracking view:', error)
+    }
+  }, 2000)
+
+  viewTrackingQueue.set(manhwaSlug, timeout)
+}
+
+/**
+ * Track manhwa view immediately (internal)
+ */
+async function trackManhwaViewImmediate(manhwaSlug: string, userId?: string): Promise<void> {
   try {
     // Get or create view record
     const { data: existing } = await supabase

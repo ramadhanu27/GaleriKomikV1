@@ -6,6 +6,8 @@ import HeroSlider from '@/components/HeroSlider'
 import PopularSidebar from '@/components/PopularSidebar'
 import AnnouncementBanner from '@/components/AnnouncementBanner'
 import { Manhwa } from '@/types'
+import { fetchWithCache } from '@/lib/cache'
+import { fetchWithRetry } from '@/lib/fetchWithRetry'
 
 export default function Home() {
   const [manhwaList, setManhwaList] = useState<Manhwa[]>([])
@@ -24,15 +26,13 @@ export default function Home() {
   const fetchManhwa = async () => {
     try {
       console.log('Fetching manhwa from API...')
-      // Use new API that reads from individual JSON files with scrapedAt
-      const response = await fetch('/api/komiku/list-from-files?limit=50')
-      console.log('Response status:', response.status)
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      // Use cache with 5 minute TTL
+      const data = await fetchWithCache(
+        '/api/komiku/list-from-files?limit=50',
+        5 * 60 * 1000 // 5 minutes
+      )
       
-      const data = await response.json()
       console.log('API Response:', data)
       
       if (data.success) {
@@ -42,11 +42,13 @@ export default function Home() {
         const manhwaData = data.data.manhwa.slice(0, 30)
         
         // Debug: Log top 5 manhwa with scrapedAt and chapters
-        console.log('Top 5 manhwa by scrapedAt:')
-        manhwaData.slice(0, 5).forEach((m: any, i: number) => {
-          console.log(`${i + 1}. ${m.title} - ${m.scrapedAt || 'No date'}`)
-          console.log('   Chapters:', m.chapters?.slice(0, 3).map((c: any) => c.number))
-        })
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Top 5 manhwa by scrapedAt:')
+          manhwaData.slice(0, 5).forEach((m: any, i: number) => {
+            console.log(`${i + 1}. ${m.title} - ${m.scrapedAt || 'No date'}`)
+            console.log('   Chapters:', m.chapters?.slice(0, 3).map((c: any) => c.number))
+          })
+        }
         
         setManhwaList(manhwaData)
         setError(null)
@@ -56,7 +58,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error fetching manhwa:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load manhwa')
+      setError(error instanceof Error ? error.message : 'Gagal memuat data. Silakan coba lagi.')
     } finally {
       setLoading(false)
     }
@@ -64,8 +66,11 @@ export default function Home() {
 
   const fetchPopular = async () => {
     try {
-      const response = await fetch('/api/komiku/list?limit=50&withCovers=true')
-      const data = await response.json()
+      // Use cache with 10 minute TTL for popular list
+      const data = await fetchWithCache(
+        '/api/komiku/list?limit=50&withCovers=true',
+        10 * 60 * 1000 // 10 minutes
+      )
       
       if (data.success) {
         // Sort by rating and get top 15
@@ -77,6 +82,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error fetching popular:', error)
+      // Don't show error for popular list, just keep it empty
     } finally {
       setLoadingPopular(false)
     }

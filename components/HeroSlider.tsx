@@ -1,15 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Manhwa } from '@/types'
-
-declare global {
-  interface Window {
-    $: any;
-    jQuery: any;
-  }
-}
 
 interface HeroSliderProps {
   manhwaList: Manhwa[]
@@ -18,43 +11,78 @@ interface HeroSliderProps {
 export default function HeroSlider({ manhwaList }: HeroSliderProps) {
   // Take top 5 manhwa for slider
   const slides = manhwaList.slice(0, 5)
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true)
+  const [touchStart, setTouchStart] = useState(0)
+  const [touchEnd, setTouchEnd] = useState(0)
+
+  // Navigate to next slide
+  const nextSlide = useCallback(() => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length)
+  }, [slides.length])
+
+  // Navigate to previous slide
+  const prevSlide = useCallback(() => {
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)
+  }, [slides.length])
+
+  // Go to specific slide
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index)
+  }
+
+  // Auto-play functionality
   useEffect(() => {
-    // Wait for jQuery and Owl Carousel to load
-    const initCarousel = () => {
-      if (typeof window !== 'undefined' && window.$ && window.$.fn.owlCarousel) {
-        const $ = window.$
-        
-        $('.hero-slider').owlCarousel({
-          items: 1,
-          loop: true,
-          autoplay: true,
-          autoplayTimeout: 5000,
-          autoplayHoverPause: true,
-          nav: false,
-          dots: true,
-          animateOut: 'fadeOut',
-          animateIn: 'fadeIn',
-          smartSpeed: 1000
-        })
-      }
+    if (!isAutoPlaying || slides.length <= 1) return
+
+    const interval = setInterval(() => {
+      nextSlide()
+    }, 5000) // 5 seconds
+
+    return () => clearInterval(interval)
+  }, [isAutoPlaying, nextSlide, slides.length])
+
+  // Touch handlers for swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX)
+  }
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return
+    
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > 50
+    const isRightSwipe = distance < -50
+
+    if (isLeftSwipe) {
+      nextSlide()
+    }
+    if (isRightSwipe) {
+      prevSlide()
     }
 
-    // Try to initialize immediately
-    initCarousel()
-
-    // Fallback: try again after a delay
-    const timer = setTimeout(initCarousel, 500)
-
-    return () => clearTimeout(timer)
-  }, [])
+    setTouchStart(0)
+    setTouchEnd(0)
+  }
 
   if (slides.length === 0) {
     return null
   }
 
   return (
-    <div className="hero-slider-container mb-12 -mx-4 sm:mx-0">
-      <div className="owl-carousel owl-theme hero-slider">
+    <div 
+      className="hero-slider-container mb-12 -mx-4 sm:mx-0 relative group"
+      onMouseEnter={() => setIsAutoPlaying(false)}
+      onMouseLeave={() => setIsAutoPlaying(true)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className="relative overflow-hidden">
         {slides.map((manhwa, index) => {
           // Get the latest chapter (first in array is usually the latest)
           const latestChapter = manhwa.chapters?.[0]
@@ -62,7 +90,10 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
           const chapterTitle = latestChapter?.title || ''
           
           return (
-            <div key={index} className="item">
+            <div 
+              key={index} 
+              className={`${index === currentSlide ? 'block' : 'hidden'} transition-all duration-500`}
+            >
               <div className="relative h-[400px] md:h-[500px] rounded-none sm:rounded-2xl overflow-hidden">
                 {/* Background Image with Blur */}
                 <div className="absolute inset-0">
@@ -125,39 +156,50 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
         })}
       </div>
 
+      {/* Navigation Arrows */}
+      {slides.length > 1 && (
+        <>
+          <button
+            onClick={prevSlide}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+            aria-label="Previous slide"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={nextSlide}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+            aria-label="Next slide"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      {/* Dots Navigation */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`transition-all ${
+                index === currentSlide
+                  ? 'w-10 h-3 bg-white'
+                  : 'w-3 h-3 bg-white/40 hover:bg-white/70'
+              } rounded-full`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
       <style jsx global>{`
-        .hero-slider .owl-dots {
-          position: absolute;
-          bottom: 20px;
-          width: 100%;
-          text-align: center;
-        }
-
-        .hero-slider .owl-dot {
-          display: inline-block;
-          margin: 0 5px;
-        }
-
-        .hero-slider .owl-dot span {
-          display: block;
-          width: 12px;
-          height: 12px;
-          background: rgba(255, 255, 255, 0.4);
-          border-radius: 50%;
-          transition: all 0.3s;
-          border: 2px solid transparent;
-        }
-
-        .hero-slider .owl-dot.active span {
-          background: white;
-          width: 40px;
-          border-radius: 10px;
-        }
-
-        .hero-slider .owl-dot:hover span {
-          background: rgba(255, 255, 255, 0.7);
-        }
-
         @keyframes float {
           0%, 100% {
             transform: translateY(0);
