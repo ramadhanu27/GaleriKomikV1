@@ -78,9 +78,10 @@ export async function getManhwaComments(
   limit: number = 50
 ): Promise<Comment[]> {
   try {
+    // Check if table exists and has required columns
     const { data: comments, error } = await supabase
       .from('comments')
-      .select('*')
+      .select('id, user_id, manhwa_slug, chapter_id, comment_text, created_at, updated_at, username, avatar_url')
       .eq('manhwa_slug', manhwaSlug)
       .is('chapter_id', null)
       .order('created_at', { ascending: false })
@@ -88,6 +89,14 @@ export async function getManhwaComments(
 
     if (error) {
       console.error('Error fetching comments:', error)
+      console.error('Error details:', error.message, error.code)
+      
+      // If column doesn't exist, return empty array
+      if (error.message.includes('column') || error.code === 'PGRST116') {
+        console.warn('Comments table schema issue. Please run fix-comments-table.sql')
+        return []
+      }
+      
       return []
     }
 
@@ -105,8 +114,9 @@ export async function getManhwaComments(
     }))
 
     return commentsWithUsers
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching comments:', error)
+    console.error('Error type:', error?.constructor?.name)
     return []
   }
 }

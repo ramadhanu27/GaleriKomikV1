@@ -16,16 +16,40 @@ export default function CommentSection({ manhwaSlug, onAuthRequired }: CommentSe
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [dbError, setDbError] = useState(false)
 
   useEffect(() => {
     fetchComments()
   }, [manhwaSlug])
 
   const fetchComments = async () => {
-    setLoading(true)
-    const data = await getManhwaComments(manhwaSlug)
-    setComments(data)
-    setLoading(false)
+    try {
+      setLoading(true)
+      setError('')
+      setDbError(false)
+      
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 10000)
+      )
+      
+      const dataPromise = getManhwaComments(manhwaSlug)
+      
+      const data = await Promise.race([dataPromise, timeoutPromise]) as Comment[]
+      
+      setComments(data || [])
+      setDbError(false)
+    } catch (error: any) {
+      console.error('Error fetching comments:', error)
+      setComments([])
+      
+      // Check if it's a database schema error
+      if (error?.message?.includes('column') || error?.message?.includes('schema')) {
+        setDbError(true)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -227,6 +251,24 @@ export default function CommentSection({ manhwaSlug, onAuthRequired }: CommentSe
               </div>
             </div>
           ))}
+        </div>
+      ) : dbError ? (
+        <div className="text-center py-12 bg-red-500/10 rounded-lg border border-red-500/30">
+          <svg className="w-16 h-16 mx-auto text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="text-red-400 font-semibold mb-2">Database Schema Error</p>
+          <p className="text-sm text-slate-400 mb-4">
+            Tabel comments belum memiliki kolom yang diperlukan.
+          </p>
+          <div className="text-left max-w-md mx-auto bg-slate-800/50 p-4 rounded-lg text-xs">
+            <p className="text-slate-300 mb-2">Untuk memperbaiki:</p>
+            <ol className="list-decimal list-inside text-slate-400 space-y-1">
+              <li>Buka Supabase Dashboard → SQL Editor</li>
+              <li>Run script dari file <code className="bg-slate-700 px-1 rounded">fix-comments-table.sql</code></li>
+              <li>Refresh halaman ini</li>
+            </ol>
+          </div>
         </div>
       ) : (
         <div className="text-center py-12">
