@@ -1,13 +1,15 @@
 /**
  * Convert external image URL to use local proxy
  * Example: https://img.komiku.org/upload5/king-of-drama/95/2025-05-17/2.webp
- * Becomes: /img-proxy/upload5/king-of-drama/95/2025-05-17/2.webp
+ * Becomes: https://www.galerikomik.cyou/img-proxy/upload5/king-of-drama/95/2025-05-17/2.webp
  * 
  * Also handles: https://thumbnail.komiku.org/img/upload/...
- * Becomes: /thumbnail-proxy/img/upload/...
+ * Becomes: https://www.galerikomik.cyou/thumbnail-proxy/img/upload/...
  */
 export function getProxiedImageUrl(imageUrl: string): string {
   if (!imageUrl) return imageUrl
+  
+  const baseUrl = 'https://www.galerikomik.cyou'
   
   try {
     const url = new URL(imageUrl)
@@ -16,13 +18,13 @@ export function getProxiedImageUrl(imageUrl: string): string {
     if (url.hostname === 'thumbnail.komiku.org') {
       // Keep query params for thumbnail (e.g., ?w=500)
       const path = url.pathname + url.search
-      return `/thumbnail-proxy${path}`
+      return `${baseUrl}/thumbnail-proxy${path}`
     }
     
     // Check if it's from img.komiku.org
     if (url.hostname === 'img.komiku.org') {
       const path = url.pathname
-      return `/img-proxy${path}`
+      return `${baseUrl}/img-proxy${path}`
     }
     
     // Return original URL if not from komiku.org
