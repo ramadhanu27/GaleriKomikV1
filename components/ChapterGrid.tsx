@@ -163,48 +163,45 @@ export default function ChapterGrid({ chapters, manhwaSlug }: ChapterGridProps) 
         </div>
       </div>
 
-      {/* Chapter List */}
+      {/* Chapter Grid - 5 Columns */}
       {currentChapters.length > 0 ? (
-        <div className="space-y-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
           {currentChapters.map((chapter, index) => (
             <Link
               key={index}
               href={`/manhwa/${manhwaSlug}/chapter/${chapter.number}`}
-              className="group flex items-center gap-4 p-4 bg-gradient-to-r from-slate-800/50 to-slate-800/30 hover:from-slate-700/70 hover:to-slate-700/50 border border-slate-700/50 rounded-lg transition-all hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-900/20"
+              className="group relative bg-gradient-to-br from-slate-800/50 to-slate-800/30 hover:from-primary-600/20 hover:to-primary-700/20 border border-slate-700/50 hover:border-primary-500/50 rounded-lg p-4 transition-all hover:shadow-lg hover:shadow-primary-900/20 hover:scale-105"
             >
-              {/* Chapter Number Badge */}
-              <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                <div className="text-center">
-                  <div className="text-xs text-primary-200 font-medium">Ch</div>
-                  <div className="text-lg font-bold text-white leading-none">{chapter.number}</div>
+              {/* Chapter Number */}
+              <div className="text-center mb-2">
+                <div className="text-xs text-slate-400 font-medium mb-1">Chapter</div>
+                <div className="text-2xl font-bold text-white group-hover:text-primary-400 transition-colors">
+                  {chapter.number}
                 </div>
               </div>
 
-              {/* Chapter Info */}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-white text-base group-hover:text-primary-400 transition-colors mb-1">
-                  Chapter {chapter.number}
-                  {chapter.title && chapter.title !== `Chapter ${chapter.number}` && (
-                    <span className="text-slate-400 font-normal ml-2">- {chapter.title}</span>
-                  )}
-                </h3>
-                {chapter.date && (
-                  <p className="text-sm text-slate-400 flex items-center gap-1.5">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {getTimeAgo(chapter.date)}
-                  </p>
-                )}
-              </div>
+              {/* Chapter Title (if exists and different) */}
+              {chapter.title && chapter.title !== `Chapter ${chapter.number}` && (
+                <div className="text-xs text-slate-400 text-center mb-2 line-clamp-2 min-h-[2rem]">
+                  {chapter.title}
+                </div>
+              )}
 
-              {/* Read Icon */}
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 rounded-full bg-slate-700/50 group-hover:bg-primary-600 flex items-center justify-center transition-colors">
-                  <svg className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              {/* Date */}
+              {chapter.date && (
+                <div className="text-xs text-slate-500 text-center flex items-center justify-center gap-1">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
+                  {getTimeAgo(chapter.date)}
                 </div>
+              )}
+
+              {/* Hover Indicator */}
+              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary-600/0 group-hover:bg-primary-600 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
             </Link>
           ))}

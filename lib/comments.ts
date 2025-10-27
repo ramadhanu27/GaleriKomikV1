@@ -71,54 +71,76 @@ export async function addComment(
 }
 
 /**
- * Get comments for manhwa
+ * Get comments for manhwa with retry mechanism
  */
 export async function getManhwaComments(
   manhwaSlug: string,
-  limit: number = 50
+  limit: number = 50,
+  retries: number = 2
 ): Promise<Comment[]> {
-  try {
-    // Check if table exists and has required columns
-    const { data: comments, error } = await supabase
-      .from('comments')
-      .select('id, user_id, manhwa_slug, chapter_id, comment_text, created_at, updated_at, username, avatar_url')
-      .eq('manhwa_slug', manhwaSlug)
-      .is('chapter_id', null)
-      .order('created_at', { ascending: false })
-      .limit(limit)
+  let lastError: any
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      // Check if table exists and has required columns
+      const { data: comments, error } = await supabase
+        .from('comments')
+        .select('id, user_id, manhwa_slug, chapter_id, comment_text, created_at, updated_at, username, avatar_url')
+        .eq('manhwa_slug', manhwaSlug)
+        .is('chapter_id', null)
+        .order('created_at', { ascending: false })
+        .limit(limit)
 
-    if (error) {
-      console.error('Error fetching comments:', error)
-      console.error('Error details:', error.message, error.code)
-      
-      // If column doesn't exist, return empty array
-      if (error.message.includes('column') || error.code === 'PGRST116') {
-        console.warn('Comments table schema issue. Please run fix-comments-table.sql')
+      if (error) {
+        console.error(`Error fetching comments (attempt ${attempt + 1}/${retries + 1}):`, error)
+        console.error('Error details:', error.message, error.code)
+        
+        // If column doesn't exist, don't retry
+        if (error.message.includes('column') || error.code === 'PGRST116') {
+          console.warn('Comments table schema issue. Please run fix-comments-table.sql')
+          return []
+        }
+        
+        lastError = error
+        
+        // If not last attempt, wait before retry
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
+          continue
+        }
+        
         return []
       }
-      
-      return []
-    }
 
-    if (!comments || comments.length === 0) {
-      return []
-    }
-
-    // Format comments with user object
-    const commentsWithUsers: Comment[] = comments.map(comment => ({
-      ...comment,
-      user: {
-        username: comment.username || 'User',
-        avatar_url: comment.avatar_url
+      if (!comments || comments.length === 0) {
+        return []
       }
-    }))
 
-    return commentsWithUsers
-  } catch (error: any) {
-    console.error('Error fetching comments:', error)
-    console.error('Error type:', error?.constructor?.name)
-    return []
+      // Format comments with user object
+      const commentsWithUsers: Comment[] = comments.map(comment => ({
+        ...comment,
+        user: {
+          username: comment.username || 'User',
+          avatar_url: comment.avatar_url
+        }
+      }))
+
+      return commentsWithUsers
+    } catch (error: any) {
+      console.error(`Error fetching comments (attempt ${attempt + 1}/${retries + 1}):`, error)
+      console.error('Error type:', error?.constructor?.name)
+      lastError = error
+      
+      // If not last attempt, wait before retry
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
+        continue
+      }
+    }
   }
+  
+  console.error('All retry attempts failed:', lastError)
+  return []
 }
 
 /**
