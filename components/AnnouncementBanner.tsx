@@ -16,11 +16,18 @@ export default function AnnouncementBanner() {
   const [announcements] = useState<Announcement[]>([
     {
       id: 'update-2025-10-28',
+      title: '🚀 Update list komik random ',
+      message: 'Sekarang kamu bisa melihat list komik random!',
+      type: 'update',
+      date: '28 Oktober 2025'
+    }, 
+    {
+      id: 'update-2025-10-28',
       title: '🚀 Update pada history dan sistem login ',
       message: 'Sekarang kamu bisa melihat history chapter yang pernah kamu baca dan sistem login yang lebih aman!',
       type: 'update',
       date: '28 Oktober 2025'
-    },
+    }, 
   ])
 
   useEffect(() => {
