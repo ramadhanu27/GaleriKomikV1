@@ -138,22 +138,45 @@ export async function logoutUser(): Promise<AuthResponse> {
 }
 
 /**
- * Get current user (optimized - no extra query)
+ * Get current user (optimized - uses session)
  */
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    // First check session (more reliable)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError) {
+      console.error('Session error:', sessionError)
+      return null
+    }
 
-    if (!user) return null
+    if (!session?.user) {
+      // Try to get user directly as fallback
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError || !user) {
+        return null
+      }
 
+      return {
+        id: user.id,
+        email: user.email!,
+        username: user.user_metadata?.username,
+        avatar_url: user.user_metadata?.avatar_url,
+        created_at: user.created_at,
+      }
+    }
+
+    // Return user from session
     return {
-      id: user.id,
-      email: user.email!,
-      username: user.user_metadata?.username,
-      avatar_url: user.user_metadata?.avatar_url,
-      created_at: user.created_at,
+      id: session.user.id,
+      email: session.user.email!,
+      username: session.user.user_metadata?.username,
+      avatar_url: session.user.user_metadata?.avatar_url,
+      created_at: session.user.created_at,
     }
   } catch (error) {
+    console.error('Error getting current user:', error)
     return null
   }
 }

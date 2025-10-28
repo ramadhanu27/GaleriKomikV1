@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User, getCurrentUser } from '@/lib/auth'
+import { validateAndFixSession, debugSession } from '@/lib/sessionHelper'
 
 interface AuthContextType {
   user: User | null
@@ -20,15 +21,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check active session
-    checkUser()
+    // Initialize auth on mount
+    const initAuth = async () => {
+      console.log('🚀 Initializing auth...')
+      
+      // Debug session info
+      debugSession()
+      
+      // Validate and fix session if needed
+      const isValid = await validateAndFixSession()
+      console.log('Session validation result:', isValid)
+      
+      // Check user regardless of validation result
+      await checkUser()
+    }
+    
+    initAuth()
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔐 Auth state changed:', event, session?.user?.email)
+      
       if (event === 'SIGNED_IN' && session) {
+        console.log('✅ User signed in, updating context')
         await checkUser()
       } else if (event === 'SIGNED_OUT') {
+        console.log('👋 User signed out')
         setUser(null)
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 Token refreshed')
+        await checkUser()
+      } else if (event === 'USER_UPDATED') {
+        console.log('👤 User updated')
+        await checkUser()
+      } else if (event === 'INITIAL_SESSION') {
+        console.log('🎯 Initial session loaded')
+        await checkUser()
       }
     })
 
@@ -39,10 +67,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkUser = async () => {
     try {
+      console.log('🔍 Checking user session...')
       const currentUser = await getCurrentUser()
-      setUser(currentUser)
+      
+      if (currentUser) {
+        console.log('✅ User found:', currentUser.email)
+        setUser(currentUser)
+      } else {
+        console.log('⚠️ No user session found')
+        setUser(null)
+      }
     } catch (error) {
-      console.error('Error checking user:', error)
+      console.error('❌ Error checking user:', error)
       setUser(null)
     } finally {
       setLoading(false)
