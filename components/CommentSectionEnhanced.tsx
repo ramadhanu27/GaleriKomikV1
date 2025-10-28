@@ -31,6 +31,10 @@ export default function CommentSectionEnhanced({ manhwaSlug, onAuthRequired }: C
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showGifPicker, setShowGifPicker] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     fetchComments()
@@ -115,8 +119,10 @@ export default function CommentSectionEnhanced({ manhwaSlug, onAuthRequired }: C
     setComments([tempComment, ...comments])
     setCommentText('')
     setError('')
+    const imageToSend = selectedImage
+    setSelectedImage(null)
 
-    addComment(user.id, manhwaSlug, trimmedComment).then(result => {
+    addComment(user.id, manhwaSlug, trimmedComment, undefined, imageToSend).then(result => {
       if (result.success && result.comment) {
         setComments(prev => 
           prev.map(c => c.id === tempComment.id ? { ...result.comment!, likes_count: 0, replies_count: 0, user_has_liked: false } : c)
@@ -124,8 +130,8 @@ export default function CommentSectionEnhanced({ manhwaSlug, onAuthRequired }: C
       } else {
         setComments(prev => prev.filter(c => c.id !== tempComment.id))
         setError(result.error || 'Gagal mengirim komentar')
-        setCommentText(trimmedComment)
       }
+      setSubmitting(false)
     })
   }
 
@@ -348,7 +354,24 @@ export default function CommentSectionEnhanced({ manhwaSlug, onAuthRequired }: C
               </div>
             </div>
           ) : (
-            <p className="text-slate-300 whitespace-pre-wrap break-words mb-3">{comment.comment_text}</p>
+            <>
+              <p className="text-slate-300 whitespace-pre-wrap break-words mb-3">{comment.comment_text}</p>
+              {/* Display Image/GIF if exists */}
+              {comment.image_url && (
+                <div className="mb-3">
+                  <img 
+                    src={comment.image_url} 
+                    alt="Comment attachment" 
+                    className="max-w-sm max-h-64 rounded-lg border border-slate-600 cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => {
+                      if (comment.image_url) {
+                        window.open(comment.image_url, '_blank')
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {/* Action Buttons */}
@@ -495,13 +518,128 @@ export default function CommentSectionEnhanced({ manhwaSlug, onAuthRequired }: C
             {error && (
               <p className="text-red-400 text-sm mt-2">{error}</p>
             )}
+            {/* Image Preview */}
+            {selectedImage && (
+              <div className="mt-3 relative inline-block">
+                <img src={selectedImage} alt="Preview" className="max-w-xs max-h-40 rounded-lg border border-slate-600" />
+                <button
+                  type="button"
+                  onClick={() => setSelectedImage(null)}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center text-white text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            
             <div className="flex items-center justify-between mt-3">
-              <p className="text-xs text-slate-500">
-                {commentText.length}/500 karakter
-              </p>
+              <div className="flex items-center gap-2">
+                {/* Emoji Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="p-2 hover:bg-slate-600/50 rounded-lg transition-all text-slate-400 hover:text-white text-xl"
+                    title="Tambah emoji"
+                  >
+                    <span role="img" aria-label="emoji">🙂</span>
+                  </button>
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-full left-0 mb-2 bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-xl z-50 w-64">
+                      <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto">
+                        {['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾'].map(emoji => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => {
+                              setCommentText(prev => prev + emoji)
+                              setShowEmojiPicker(false)
+                            }}
+                            className="text-2xl hover:bg-slate-700 rounded p-1 transition-all"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* GIF Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowGifPicker(!showGifPicker)}
+                    className="p-2 hover:bg-slate-600/50 rounded-lg transition-all text-slate-400 hover:text-white text-sm font-medium"
+                    title="Tambah GIF"
+                  >
+                    GIF
+                  </button>
+                  {showGifPicker && (
+                    <div className="absolute bottom-full left-0 mb-2 bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-xl z-50 w-80">
+                      <p className="text-sm text-slate-400 mb-2">GIF Populer:</p>
+                      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                        {[
+                          'https://media.tenor.com/images/d7f7d7f7d7f7d7f7d7f7d7f7d7f7d7f7/tenor.gif',
+                          'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif',
+                          'https://media.giphy.com/media/l0HlRnAWXxn0MhKLK/giphy.gif',
+                          'https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif'
+                        ].map((gif, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setSelectedImage(gif)
+                              setShowGifPicker(false)
+                            }}
+                            className="hover:opacity-80 transition-all rounded overflow-hidden"
+                          >
+                            <img src={gif} alt={`GIF ${i + 1}`} className="w-full h-24 object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2 text-center">
+                        Atau paste URL GIF di komentar
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Image Upload Button */}
+                <label className="p-2 hover:bg-slate-600/50 rounded-lg transition-all text-slate-400 hover:text-white cursor-pointer" title="Upload gambar">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          setError('Ukuran gambar maksimal 5MB')
+                          return
+                        }
+                        setUploadingImage(true)
+                        const reader = new FileReader()
+                        reader.onloadend = () => {
+                          setSelectedImage(reader.result as string)
+                          setUploadingImage(false)
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                  />
+                </label>
+
+                <p className="text-xs text-slate-500">
+                  {commentText.length}/500
+                </p>
+              </div>
               <button
                 type="submit"
-                disabled={!user || submitting || !commentText.trim()}
+                disabled={!user || submitting || (!commentText.trim() && !selectedImage)}
                 className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {submitting ? (

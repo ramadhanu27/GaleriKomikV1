@@ -4,18 +4,20 @@ export interface Comment {
   id: string
   user_id: string
   manhwa_slug: string
-  chapter_id?: string
   comment_text: string
+  image_url?: string | null
   created_at: string
   updated_at: string
   parent_id?: string | null
-  likes_count?: number
-  replies_count?: number
   is_edited?: boolean
   user?: {
+    id: string
     username: string
+    email: string
     avatar_url?: string
   }
+  likes_count?: number
+  replies_count?: number
   user_has_liked?: boolean
   replies?: Comment[]
 }
@@ -34,7 +36,8 @@ export async function addComment(
   userId: string,
   manhwaSlug: string,
   commentText: string,
-  chapterId?: string
+  chapterId?: string,
+  imageUrl?: string | null
 ): Promise<{ success: boolean; comment?: Comment; error?: string }> {
   try {
     // Get user data from auth first
@@ -58,6 +61,7 @@ export async function addComment(
         manhwa_slug: manhwaSlug,
         chapter_id: chapterId,
         comment_text: commentText,
+        image_url: imageUrl,
       })
       .select()
       .single()
