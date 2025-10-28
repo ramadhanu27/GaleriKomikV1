@@ -1,11 +1,16 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import dynamic from 'next/dynamic'
 import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { ThemeProvider } from '@/components/ThemeProvider'
-import { AuthProvider } from '@/contexts/AuthContext'
 import Analytics from '@/components/Analytics'
+
+const AuthProvider = dynamic(
+  () => import('@/contexts/AuthContext').then(mod => ({ default: mod.AuthProvider })),
+  { ssr: false }
+)
 
 const inter = Inter({ subsets: ['latin'] })
 

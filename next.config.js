@@ -15,9 +15,24 @@ const nextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
+  webpack: (config, { isServer }) => {
+    // Disable runtimeChunk splitting to prevent RSC crash
+    config.optimization.runtimeChunk = false;
+
+    // Ensure all dynamic imports handled safely
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      os: false,
+    };
+
+    return config;
+  },
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
+  reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
   async headers() {

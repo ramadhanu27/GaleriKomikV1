@@ -287,7 +287,11 @@ export default function ManhwaDetailPage() {
           </h2>
           
           {manhwa.chapters && manhwa.chapters.length > 0 ? (
-            <ChapterGrid chapters={manhwa.chapters} manhwaSlug={slug} />
+            <ChapterGrid 
+              chapters={manhwa.chapters} 
+              manhwaSlug={slug}
+              manhwaTitle={manhwa.manhwaTitle || manhwa.title}
+            />
           ) : (
             <div className="text-center py-12">
               <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

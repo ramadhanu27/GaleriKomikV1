@@ -16,18 +16,18 @@ export default function AnnouncementBanner() {
   const [announcements] = useState<Announcement[]>([
     {
       id: 'update-2025-10-28',
-      title: '🚀 Update list komik random ',
-      message: 'Sekarang kamu bisa melihat list komik random!',
+      title: '🚀 Sekarang bisa download Chapter!',
+      message: 'Fitur baru telah hadir! Kini kamu bisa langsung mengunduh chapter favoritmu untuk dibaca secara offline. Coba sekarang dan nikmati pengalaman membaca tanpa koneksi internet!',
       type: 'success',
       date: '28 Oktober 2025'
     }, 
     {
-      id: 'update-2025-10-28',
-      title: '🚀 Update pada history dan sistem login ',
-      message: 'Sekarang kamu bisa melihat history chapter yang pernah kamu baca dan sistem login yang lebih aman!',
-      type: 'update',
-      date: '28 Oktober 2025'
-    }, 
+      id: 'update-2025-10-29',
+      title: '📦 Download Berhasil!',
+      message: 'Chapter yang kamu pilih sudah diunduh dalam satu file ZIP. Selamat membaca!',
+      type: 'success',
+      date: '29 Oktober 2025'
+    }
   ])
 
   useEffect(() => {

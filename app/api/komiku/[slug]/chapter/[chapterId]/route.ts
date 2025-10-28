@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabase, SUPABASE_BUCKET } from '@/lib/supabase'
+import { supabase, SUPABASE_BUCKET } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
