@@ -111,7 +111,9 @@ export default function CommentSectionEnhanced({ manhwaSlug, onAuthRequired }: C
       replies_count: 0,
       user_has_liked: false,
       user: {
+        id: user.id,
         username: user.username || user.email?.split('@')[0] || 'User',
+        email: user.email || '',
         avatar_url: user.avatar_url
       }
     }

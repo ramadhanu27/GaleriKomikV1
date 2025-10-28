@@ -76,7 +76,9 @@ export default function CommentSection({ manhwaSlug, onAuthRequired }: CommentSe
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       user: {
+        id: user.id,
         username: user.username || user.email?.split('@')[0] || 'User',
+        email: user.email || '',
         avatar_url: user.avatar_url
       }
     }
