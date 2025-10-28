@@ -18,7 +18,7 @@ export default function AnnouncementBanner() {
       id: 'update-2025-10-28',
       title: '🚀 Update list komik random ',
       message: 'Sekarang kamu bisa melihat list komik random!',
-      type: 'update',
+      type: 'success',
       date: '28 Oktober 2025'
     }, 
     {
