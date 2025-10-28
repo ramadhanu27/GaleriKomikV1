@@ -133,8 +133,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut()
+      
+      // Clear all auth-related data from localStorage
+      if (typeof window !== 'undefined') {
+        // Remove Supabase auth token
+        localStorage.removeItem('arkomik-auth')
+        // Remove any other auth-related keys
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') || key.includes('auth') || key.includes('supabase')) {
+            localStorage.removeItem(key)
+          }
+        })
+      }
+      
+      setUser(null)
+    } catch (error) {
+      console.error('Error signing out:', error)
+      setUser(null)
+    }
   }
 
   const refreshUser = async () => {

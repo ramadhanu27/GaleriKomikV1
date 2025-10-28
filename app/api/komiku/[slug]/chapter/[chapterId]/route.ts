@@ -49,10 +49,18 @@ export async function GET(
     const prevChapter = currentIndex > 0 ? chapters[currentIndex - 1] : null
     const nextChapter = currentIndex < chapters.length - 1 ? chapters[currentIndex + 1] : null
 
+    // Add manhwa info to chapter for reading history
+    const chapterWithManhwaInfo = {
+      ...chapter,
+      manhwa_title: chapterJson.title || chapterJson.manhwa_title || slug,
+      manhwa_image: chapterJson.image || chapterJson.cover || '',
+      manhwa_slug: slug,
+    }
+
     return NextResponse.json({
       success: true,
       data: {
-        chapter,
+        chapter: chapterWithManhwaInfo,
         navigation: {
           prev: prevChapter ? {
             id: prevChapter.number?.toString() || prevChapter.id || prevChapter.chapter,

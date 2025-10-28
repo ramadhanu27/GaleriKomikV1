@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getProxiedImageUrl } from '@/lib/imageProxy'
+import { useAuth } from '@/contexts/AuthContext'
+import { addReadingHistory } from '@/lib/readingHistory'
 
 interface ChapterData {
   chapter: any
@@ -17,6 +19,7 @@ interface ChapterData {
 export default function ChapterPage() {
   const params = useParams()
   const router = useRouter()
+  const { user } = useAuth()
   const slug = params.slug as string
   const chapterId = params.chapterId as string
   
@@ -88,11 +91,41 @@ export default function ChapterPage() {
       
       if (data.success) {
         setChapterData(data.data)
+        
+        // Save to reading history if user is logged in
+        if (user && data.data.chapter) {
+          saveToHistory(data.data.chapter)
+        }
       }
     } catch (error) {
       console.error('Error fetching chapter:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const saveToHistory = async (chapter: any) => {
+    if (!user) return
+    
+    try {
+      // Get manhwa info from chapter data or fetch it
+      const manhwaTitle = chapter.manhwa_title || chapter.title?.split('Chapter')[0]?.trim() || 'Unknown'
+      const manhwaImage = chapter.manhwa_image || chapter.image || ''
+      const chapterNumber = chapter.number || chapter.chapter || chapterId
+      
+      await addReadingHistory(
+        user.id,
+        slug,
+        manhwaTitle,
+        manhwaImage,
+        chapterNumber.toString(),
+        chapterId,
+        'manhwa'
+      )
+      
+      console.log('✅ Reading history saved')
+    } catch (error) {
+      console.error('Error saving reading history:', error)
     }
   }
 

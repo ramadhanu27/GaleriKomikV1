@@ -7,6 +7,25 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    // Use localStorage instead of cookies to reduce site data
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: 'arkomik-auth',
+    // Don't auto-refresh token to reduce network calls
+    autoRefreshToken: true,
+    // Persist session only in localStorage, not cookies
+    persistSession: true,
+    // Detect session from URL (for OAuth)
+    detectSessionInUrl: true,
+    // Flow type for better security
+    flowType: 'pkce',
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'arkomik-web',
+    },
+  },
+})
 
 export const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || 'komiku-data'
