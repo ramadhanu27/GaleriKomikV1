@@ -39,6 +39,13 @@ export default function ChapterPage() {
     fetchAllChapters()
   }, [slug, chapterId])
 
+  // Save to history when user logs in and chapter data is available
+  useEffect(() => {
+    if (user && chapterData?.chapter) {
+      saveToHistory(chapterData.chapter)
+    }
+  }, [user])
+
   useEffect(() => {
     const handleScroll = () => {
       // Always show nav when autoscroll is active
@@ -105,15 +112,26 @@ export default function ChapterPage() {
   }
 
   const saveToHistory = async (chapter: any) => {
-    if (!user) return
+    if (!user) {
+      console.log('⚠️ No user logged in, skipping history save')
+      return
+    }
     
     try {
       // Get manhwa info from chapter data or fetch it
-      const manhwaTitle = chapter.manhwa_title || chapter.title?.split('Chapter')[0]?.trim() || 'Unknown'
+      const manhwaTitle = chapter.manhwa_title || chapter.title?.split('Chapter')[0]?.trim() || slug
       const manhwaImage = chapter.manhwa_image || chapter.image || ''
       const chapterNumber = chapter.number || chapter.chapter || chapterId
       
-      await addReadingHistory(
+      console.log('📚 Saving to history:', {
+        userId: user.id,
+        slug,
+        manhwaTitle,
+        chapterNumber,
+        chapterId
+      })
+      
+      const result = await addReadingHistory(
         user.id,
         slug,
         manhwaTitle,
@@ -123,9 +141,13 @@ export default function ChapterPage() {
         'manhwa'
       )
       
-      console.log('✅ Reading history saved')
+      if (result.success) {
+        console.log('✅ Reading history saved successfully')
+      } else {
+        console.error('❌ Failed to save history:', result.error)
+      }
     } catch (error) {
-      console.error('Error saving reading history:', error)
+      console.error('❌ Error saving reading history:', error)
     }
   }
 

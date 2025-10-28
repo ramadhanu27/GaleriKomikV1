@@ -25,8 +25,17 @@ export async function addReadingHistory(
   manhwaType?: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
+    console.log('📝 Adding reading history:', {
+      userId,
+      manhwaSlug,
+      manhwaTitle,
+      chapterNumber,
+      chapterId
+    })
+
     // Upsert (insert or update if exists)
-    const { error } = await supabase
+    // Will update the same manhwa entry with latest chapter
+    const { data, error } = await supabase
       .from('reading_history')
       .upsert({
         user_id: userId,
@@ -38,16 +47,19 @@ export async function addReadingHistory(
         chapter_id: chapterId,
         last_read_at: new Date().toISOString(),
       }, {
-        onConflict: 'user_id,manhwa_slug,chapter_id'
+        onConflict: 'user_id,manhwa_slug'
       })
+      .select()
 
     if (error) {
-      console.error('Error adding reading history:', error)
+      console.error('❌ Error adding reading history:', error)
       return { success: false, error: error.message }
     }
 
+    console.log('✅ Reading history saved:', data)
     return { success: true, message: 'Reading history updated' }
   } catch (error: any) {
+    console.error('❌ Exception in addReadingHistory:', error)
     return { success: false, error: error.message }
   }
 }
