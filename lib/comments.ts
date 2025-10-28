@@ -137,7 +137,9 @@ export async function getManhwaComments(
       const commentsWithUsers: Comment[] = comments.map(comment => ({
         ...comment,
         user: {
+          id: comment.user_id || 'unknown',
           username: comment.username || 'User',
+          email: `${comment.username || 'user'}@arkomik.com`, // Placeholder email
           avatar_url: comment.avatar_url
         }
       }))
