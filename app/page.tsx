@@ -16,6 +16,7 @@ export default function Home() {
   const [loadingPopular, setLoadingPopular] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [isRandomized, setIsRandomized] = useState(false)
   const itemsPerPage = 15
 
   useEffect(() => {
@@ -66,27 +67,50 @@ export default function Home() {
 
   const fetchPopular = async () => {
     try {
-      // Use cache with 10 minute TTL for popular list
+      console.log('🎲 Fetching manhwa for popular section...')
+      
+      // Fetch manhwa from files (more data available)
       const data = await fetchWithCache(
-        '/api/komiku/list?limit=50&withCovers=true',
-        10 * 60 * 1000 // 10 minutes
+        '/api/komiku/list-from-files?limit=100',
+        5 * 60 * 1000 // 5 minutes
       )
       
       if (data.success) {
-        // Sort by rating and get top 15
-        const sorted = [...data.data.manhwa]
-          .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-          .slice(0, 15)
+        const allManhwa = data.data.manhwa
         
+        // Sort by totalChapters for initial load (consistent between server/client)
+        const sorted = [...allManhwa]
+          .filter(m => m.totalChapters && m.totalChapters > 0)
+          .sort((a, b) => (b.totalChapters || 0) - (a.totalChapters || 0))
+          .slice(0, 50) // Take top 50 popular
+        
+        console.log('✅ Manhwa loaded:', sorted.length)
         setPopularList(sorted)
       }
     } catch (error) {
-      console.error('Error fetching popular:', error)
+      console.error('❌ Error fetching manhwa:', error)
       // Don't show error for popular list, just keep it empty
     } finally {
       setLoadingPopular(false)
     }
   }
+  
+  // Randomize after initial load (client-side only)
+  useEffect(() => {
+    if (popularList.length > 0 && !loadingPopular && !isRandomized) {
+      // Fisher-Yates shuffle algorithm for true randomization
+      const shuffled = [...popularList]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+      
+      // Take first 12 random manhwa
+      const randomManhwa = shuffled.slice(0, 12)
+      setPopularList(randomManhwa)
+      setIsRandomized(true)
+    }
+  }, [popularList, loadingPopular, isRandomized])
 
   return (
     <div className="py-8">
@@ -120,60 +144,69 @@ export default function Home() {
           </div>
         )}
 
-        {/* Popular Section */}
+        {/* Popular Section - Random Manhwa */}
         <section className="mb-8">
-          <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-xl p-4 mb-6 border border-slate-700/50">
-            <div className="flex items-center justify-between">
+          <div className="bg-gradient-to-r from-red-900/20 to-orange-900/20 backdrop-blur-sm rounded-xl p-4 mb-6 border border-red-700/30">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center shadow-lg">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
-                  </svg>
+                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+                  🔥
                 </div>
                 Manhwa Populer
+                <span className="text-sm font-normal text-slate-400 hidden sm:inline">
+                  Random Selection
+                </span>
               </h2>
-              <a href="/populer" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary-900/30 flex items-center gap-2">
-                Lihat Semua
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </a>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setLoadingPopular(true)
+                    setIsRandomized(false)
+                    fetchPopular()
+                  }}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
+                  title="Acak lagi"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="hidden sm:inline">Acak Lagi</span>
+                </button>
+                <a href="/populer" className="px-4 py-2 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2">
+                  Lihat Semua
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </div>
             </div>
           </div>
 
           {loadingPopular ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {[...Array(10)].map((_, i) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {[...Array(12)].map((_, i) => (
                 <div key={i} className="skeleton h-80 rounded-lg" />
               ))}
             </div>
           ) : popularList.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {popularList.map((manhwa) => (
-                <ManhwaCard key={manhwa.slug} manhwa={manhwa} showNewBadge={false} />
-              ))}
-              {/* Placeholder cards for empty slots */}
-              {Array.from({ length: Math.max(0, 15 - popularList.length) }).map((_, index) => (
-                <div 
-                  key={`placeholder-popular-${index}`} 
-                  className="aspect-[2/3] rounded-lg border-2 border-dashed border-slate-700/50 bg-slate-800/20 flex items-center justify-center"
-                >
-                  <div className="text-center p-4">
-                    <svg className="w-12 h-12 mx-auto text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <p className="text-xs text-slate-500">Coming Soon</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {popularList.map((manhwa, index) => (
+                  <ManhwaCard key={`${manhwa.slug}-${index}`} manhwa={manhwa} showNewBadge={false} />
+                ))}
+              </div>
+              <div className="mt-4 text-center">
+                <p className="text-sm text-slate-400">
+                  Menampilkan {popularList.length} manhwa secara acak dari database
+                </p>
+              </div>
+            </>
           ) : (
             <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700/50">
               <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-slate-400">Belum ada data populer tersedia</p>
+              <p className="text-slate-400">Belum ada data tersedia</p>
             </div>
           )}
         </section>
