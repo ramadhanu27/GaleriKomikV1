@@ -101,14 +101,19 @@ export async function uploadAvatar(
   file: File
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
+    console.log('📤 Starting avatar upload for user:', userId)
+    
     // Compress image first
     const compressedBlob = await compressImage(file)
-    const fileName = `${userId}-${Date.now()}.jpg`
-    const filePath = `avatars/${fileName}`
+    const fileName = `${Date.now()}.jpg`
+    // Path format: {user_id}/filename.jpg (for RLS policy)
+    const filePath = `${userId}/${fileName}`
+
+    console.log('📁 Upload path:', filePath)
 
     // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('user-avatars')
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('avatars')
       .upload(filePath, compressedBlob, {
         cacheControl: '3600',
         upsert: true,
@@ -116,16 +121,22 @@ export async function uploadAvatar(
       })
 
     if (uploadError) {
+      console.error('❌ Upload error:', uploadError)
       return { success: false, error: uploadError.message }
     }
 
+    console.log('✅ Upload successful:', uploadData)
+
     // Get public URL
     const { data } = supabase.storage
-      .from('user-avatars')
+      .from('avatars')
       .getPublicUrl(filePath)
+
+    console.log('🔗 Public URL:', data.publicUrl)
 
     return { success: true, url: data.publicUrl }
   } catch (error: any) {
+    console.error('❌ Exception during upload:', error)
     return { success: false, error: error.message }
   }
 }
