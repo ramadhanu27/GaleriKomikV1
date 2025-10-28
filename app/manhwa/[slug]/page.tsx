@@ -11,7 +11,7 @@ import ChapterGrid from '@/components/ChapterGrid'
 import RecommendedManhwa from '@/components/RecommendedManhwa'
 import BookmarkButton from '@/components/BookmarkButton'
 import AuthModal from '@/components/AuthModal'
-import CommentSection from '@/components/CommentSection'
+import CommentSectionEnhanced from '@/components/CommentSectionEnhanced'
 
 interface ManhwaDetail {
   title: string
@@ -300,7 +300,7 @@ export default function ManhwaDetailPage() {
 
         {/* Comment Section */}
         <div className="mb-8">
-          <CommentSection
+          <CommentSectionEnhanced
             manhwaSlug={slug}
             onAuthRequired={() => setShowAuthModal(true)}
           />

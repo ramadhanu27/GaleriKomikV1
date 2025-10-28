@@ -159,10 +159,18 @@ export default function Header() {
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-300 hover:text-white"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">
-                      {user.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
-                    </span>
+                  <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center overflow-hidden">
+                    {user.avatar_url ? (
+                      <img 
+                        src={user.avatar_url} 
+                        alt={user.username || 'Avatar'} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white font-bold text-sm">
+                        {user.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <span className="text-sm font-medium">{user.username || user.email?.split('@')[0]}</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -348,10 +356,18 @@ export default function Header() {
               <>
                 <div className="px-4 py-3 bg-slate-800/50 rounded-lg mb-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">
-                        {user.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
-                      </span>
+                    <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center overflow-hidden">
+                      {user.avatar_url ? (
+                        <img 
+                          src={user.avatar_url} 
+                          alt={user.username || 'Avatar'} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-white font-bold text-sm">
+                          {user.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <p className="text-white font-medium text-sm">{user.username || user.email?.split('@')[0]}</p>
