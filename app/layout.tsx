@@ -5,7 +5,6 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { AuthProvider } from '@/contexts/AuthContext'
-import GoogleAnalytics from '@/components/GoogleAnalytics'
 import Analytics from '@/components/Analytics'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -96,6 +95,22 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://img.komiku.org" />
         <link rel="dns-prefetch" href="https://thumbnail.komiku.org" />
         
+        {/* Google Analytics */}
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-H0ZKH8V6Z8"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-H0ZKH8V6Z8');
+            `,
+          }}
+        />
+        
         {/* Theme script - prevent flash */}
         <script
           dangerouslySetInnerHTML={{
@@ -113,7 +128,6 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ''} />
         <ThemeProvider>
           <AuthProvider>
             <Analytics />
