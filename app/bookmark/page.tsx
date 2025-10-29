@@ -33,7 +33,7 @@ export default function BookmarkPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="py-8">
+      <div className="min-h-screen bg-[#0a0f1a] py-8">
         <div className="container-custom">
           <div className="skeleton h-12 w-64 mb-8" />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -48,14 +48,14 @@ export default function BookmarkPage() {
 
   if (!user) {
     return (
-      <div className="py-8">
+      <div className="min-h-screen bg-[#0a0f1a] py-8">
         <div className="container-custom">
           <div className="text-center py-20">
-            <svg className="w-20 h-20 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-20 h-20 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <h2 className="text-2xl font-bold text-white mb-2">Login Diperlukan</h2>
-            <p className="text-slate-400 mb-6">Silakan login untuk melihat bookmark Anda</p>
+            <p className="text-gray-400 mb-6">Silakan login untuk melihat bookmark Anda</p>
             <Link href="/" className="btn-primary">
               Kembali ke Beranda
             </Link>
@@ -66,7 +66,7 @@ export default function BookmarkPage() {
   }
 
   return (
-    <div className="py-8">
+    <div className="min-h-screen bg-[#0a0f1a] py-8">
       <div className="container-custom">
         {/* Header */}
         <div className="mb-8">
@@ -78,7 +78,7 @@ export default function BookmarkPage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Bookmark Saya</h1>
-              <p className="text-slate-400">
+              <p className="text-gray-400">
                 {bookmarks.length} manhwa tersimpan
               </p>
             </div>
@@ -92,10 +92,10 @@ export default function BookmarkPage() {
               <Link
                 key={bookmark.id}
                 href={`/manhwa/${bookmark.manhwa_slug}`}
-                className="group cursor-pointer block rounded-lg overflow-hidden bg-slate-800 hover:ring-2 hover:ring-primary-500 shadow-md hover:shadow-xl transition-all duration-300"
+                className="group cursor-pointer block rounded-lg overflow-hidden bg-dark-900 hover:ring-2 hover:ring-primary-500 shadow-md hover:shadow-xl transition-all duration-300"
               >
                 {/* Image Container */}
-                <div className="relative aspect-[2/3] overflow-hidden bg-slate-900">
+                <div className="relative aspect-[2/3] overflow-hidden bg-dark-950">
                   <Image
                     src={bookmark.manhwa_image}
                     alt={bookmark.manhwa_title}
@@ -133,8 +133,8 @@ export default function BookmarkPage() {
                 </div>
 
                 {/* Date Info */}
-                <div className="bg-slate-800 p-2.5">
-                  <p className="text-xs text-slate-400">
+                <div className="bg-dark-900 p-2.5">
+                  <p className="text-xs text-gray-400">
                     Ditambahkan {new Date(bookmark.created_at).toLocaleDateString('id-ID', {
                       day: 'numeric',
                       month: 'short',
@@ -146,12 +146,12 @@ export default function BookmarkPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 bg-slate-800/30 rounded-xl border border-slate-700/50">
-            <svg className="w-20 h-20 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="text-center py-20 bg-dark-900 rounded-xl border border-gray-800">
+            <svg className="w-20 h-20 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
             <h2 className="text-xl font-bold text-white mb-2">Belum Ada Bookmark</h2>
-            <p className="text-slate-400 mb-6">Mulai tambahkan manhwa favorit Anda ke bookmark</p>
+            <p className="text-gray-400 mb-6">Mulai tambahkan manhwa favorit Anda ke bookmark</p>
             <Link href="/" className="btn-primary">
               Jelajahi Manhwa
             </Link>

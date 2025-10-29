@@ -31,7 +31,7 @@ export default function Home() {
       // Use cache with 5 minute TTL
       const data = await fetchWithCache(
         '/api/komiku/list-from-files?limit=50',
-        5 * 60 * 1000 // 5 minutes
+        5 * 60 * 50 // 5 minutes
       )
       
       console.log('API Response:', data)
@@ -71,8 +71,8 @@ export default function Home() {
       
       // Fetch manhwa from files (more data available)
       const data = await fetchWithCache(
-        '/api/komiku/list-from-files?limit=100',
-        5 * 60 * 1000 // 5 minutes
+        '/api/komiku/list-from-files?limit=20',
+        5 * 60 * 50 // 5 minutes
       )
       
       if (data.success) {
@@ -82,7 +82,7 @@ export default function Home() {
         const sorted = [...allManhwa]
           .filter(m => m.totalChapters && m.totalChapters > 0)
           .sort((a, b) => (b.totalChapters || 0) - (a.totalChapters || 0))
-          .slice(0, 50) // Take top 50 popular
+          .slice(0, 15) // Take top 15 popular (5 columns × 3 rows)
         
         console.log('✅ Manhwa loaded:', sorted.length)
         setPopularList(sorted)
@@ -106,7 +106,7 @@ export default function Home() {
       }
       
       // Take first 12 random manhwa
-      const randomManhwa = shuffled.slice(0, 12)
+      const randomManhwa = shuffled.slice(0, 15)
       setPopularList(randomManhwa)
       setIsRandomized(true)
     }
@@ -183,24 +183,17 @@ export default function Home() {
           </div>
 
           {loadingPopular ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {[...Array(12)].map((_, i) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {[...Array(15)].map((_, i) => (
                 <div key={i} className="skeleton h-80 rounded-lg" />
               ))}
             </div>
           ) : popularList.length > 0 ? (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {popularList.map((manhwa, index) => (
-                  <ManhwaCard key={`${manhwa.slug}-${index}`} manhwa={manhwa} showNewBadge={false} />
-                ))}
-              </div>
-              <div className="mt-4 text-center">
-                <p className="text-sm text-slate-400">
-                  Menampilkan {popularList.length} manhwa secara acak dari database
-                </p>
-              </div>
-            </>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {popularList.map((manhwa, index) => (
+                <ManhwaCard key={`${manhwa.slug}-${index}`} manhwa={manhwa} showNewBadge={false} />
+              ))}
+            </div>
           ) : (
             <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700/50">
               <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

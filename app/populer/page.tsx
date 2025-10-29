@@ -20,7 +20,7 @@ export default function PopulerPage() {
   const fetchManhwa = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/komiku/list?page=${page}&limit=30&withCovers=true`)
+      const response = await fetch(`/api/komiku/list?page=${page}&limit=30`)
       const data = await response.json()
       
       if (data.success) {
@@ -45,10 +45,10 @@ export default function PopulerPage() {
   }
 
   return (
-    <div className="py-8">
+    <div className="min-h-screen bg-[#0a0f1a] py-8">
       <div className="container-custom">
         {/* Header Section */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 mb-8 border border-slate-700/50">
+        <div className="bg-gradient-to-br from-dark-900 to-dark-950 rounded-2xl p-8 mb-8 border border-gray-800">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
               <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
@@ -58,19 +58,19 @@ export default function PopulerPage() {
                 </svg>
                 Manhwa Populer
               </h1>
-              <p className="text-slate-300">
+              <p className="text-gray-300">
                 Manhwa paling populer dan paling banyak dibaca
               </p>
             </div>
 
             {/* Time Filter Tabs */}
-            <div className="flex gap-2 bg-slate-700/50 p-1.5 rounded-lg">
+            <div className="flex gap-2 bg-dark-800 p-1.5 rounded-lg border border-gray-700">
               <button
                 onClick={() => handleFilterChange('weekly')}
                 className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
                   timeFilter === 'weekly'
-                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/30'
-                    : 'text-slate-300 hover:bg-slate-600/50 hover:text-white'
+                    ? 'bg-primary-600 text-white shadow-lg'
+                    : 'text-gray-300 hover:bg-dark-700 hover:text-white'
                 }`}
               >
                 Weekly
@@ -79,8 +79,8 @@ export default function PopulerPage() {
                 onClick={() => handleFilterChange('monthly')}
                 className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
                   timeFilter === 'monthly'
-                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/30'
-                    : 'text-slate-300 hover:bg-slate-600/50 hover:text-white'
+                    ? 'bg-primary-600 text-white shadow-lg'
+                    : 'text-gray-300 hover:bg-dark-700 hover:text-white'
                 }`}
               >
                 Monthly
@@ -89,8 +89,8 @@ export default function PopulerPage() {
                 onClick={() => handleFilterChange('all')}
                 className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
                   timeFilter === 'all'
-                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/30'
-                    : 'text-slate-300 hover:bg-slate-600/50 hover:text-white'
+                    ? 'bg-primary-600 text-white shadow-lg'
+                    : 'text-gray-300 hover:bg-dark-700 hover:text-white'
                 }`}
               >
                 All Time
@@ -120,23 +120,21 @@ export default function PopulerPage() {
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-6 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                  className="px-6 py-2.5 bg-dark-800 hover:bg-dark-700 text-white rounded-lg disabled:bg-dark-900 disabled:text-gray-600 disabled:cursor-not-allowed transition-all font-medium"
                 >
                   ← Previous
                 </button>
                 <div className="flex items-center gap-2">
-                  <span className="px-4 py-2.5 bg-primary-600 text-white rounded-lg font-medium shadow-lg">
+                  <span className="text-sm text-gray-500">Page</span>
+                  <span className="px-4 py-2.5 bg-primary-600 text-white rounded-lg font-bold shadow-lg">
                     {page}
                   </span>
-                  <span className="text-slate-400">of</span>
-                  <span className="px-4 py-2.5 bg-slate-700/50 text-white rounded-lg font-medium">
-                    {totalPages}
-                  </span>
+                  <span className="text-sm text-gray-500">of {totalPages}</span>
                 </div>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-6 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                  className="px-6 py-2.5 bg-dark-800 hover:bg-dark-700 text-white rounded-lg disabled:bg-dark-900 disabled:text-gray-600 disabled:cursor-not-allowed transition-all font-medium"
                 >
                   Next →
                 </button>

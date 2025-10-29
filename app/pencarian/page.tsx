@@ -1,449 +1,792 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import ManhwaCard from '@/components/ManhwaCard'
-import { Manhwa } from '@/types'
+import { useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Search, ChevronDown, ChevronUp, SlidersHorizontal, X, Grid3x3, List } from 'lucide-react'
+import { Manhwa } from '@/types'
+import { useTheme } from '@/components/ThemeProvider'
 
 const GENRES = [
-  '4-Koma', 'Actiom', 'Action', 'Action Adventure', 'Actions', 'Adaptasi', 'Adaptation',
-  'Adult', 'Adventure', 'Adventure l', 'Age Gap', 'Aliens', 'Animal', 'Animals',
-  'Antihero', 'Apocalyptic', 'Artbook', 'Award Winning', 'Bacamanga', 'Beasts',
-  'Berwarna Penuh', 'Bloody', 'Bodyswap', 'Borderline H', 'Boys', 'Boys\' Love',
-  'Businessman', 'Cartoon', 'Cheating/Infidelity', 'Childhood Friends', 'Clam Protagonist',
-  'College life', 'Comedy', 'Comedy. Fantasy. Isekai. Romance', 'Comic', 'COMICS',
-  'Coming Soon', 'Cooking', 'Cooming Soon', 'Crime', 'Crossdressing', 'Cultivasi',
-  'cultivation', 'Dance', 'Dark Fantasy', 'Delinquents', 'Dementia', 'Demon', 'Demons',
-  'Doctor', 'Drama', 'Dungeons', 'Ecchi', 'Emperor\'s daughte', 'Emperor\'s daughter',
-  'Fan-Colored', 'Fanstasy', 'Fanstay', 'Fantas', 'Fantasi', 'Fantasy', 'Fetish',
-  'Full Color', 'Full Colour', 'Fusion Fantasy', 'Game', 'gaming', 'Gang',
-  'Gender Bender', 'Genderswap', 'Genius', 'genre drama', 'Ghosts', 'Girls',
-  'Girls\' Love', 'Gore', 'Gyaru', 'H4rem', 'Harem', 'Hentai', 'Hero', 'Historical',
-  'History', 'Horror', 'Hot blood', 'Imageset', 'Incest', 'Industri Film', 'Iseka',
-  'Isekai', 'Josei', 'Josei(W)', 'kerajaan', 'Kids', 'Kodomo', 'Kombay', 'Komedi',
-  'Komikav', 'Komikcast', 'Korean', 'KUMAPAGE', 'Law', 'Leveling', 'Loli', 'Lolicon',
-  'Long Strip', 'Mafia', 'Magic', 'Magical', 'Magical Girls', 'Manga', 'Manhua',
-  'Manhwa', 'Martial Art', 'Martial Arts', 'Matrial Arts', 'Mature', 'Mecha', 'Medical',
-  'MgKomik', 'Milf Lover', 'Military', 'Mirror', 'Modern', 'Monster', 'Monster girls',
-  'Monsters', 'Murim', 'Music', 'Mystery', 'Necromancer', 'Netorare/NTR', 'Ninja',
-  'Non-human', 'NTR', 'Office Workers', 'One-Shot', 'Oneshot', 'Ongoing', 'Overpowered',
-  'Parody', 'Penjahat', 'Pets', 'Philosophical', 'Police', 'Post apocalyptic', 'Project',
-  'Psychological', 'Regression', 'Reincanation', 'Reincarnation', 'Returner', 'Revenge',
-  'Reverse harem', 'Reverse Isekai', 'Romance', 'Romane', 'Romantis', 'Romcom',
-  'Royal family', 'Royalty', 'scholol life', 'School', 'School Life', 'Sci-fi', 'Seinen',
-  'Seinen(M)', 'Seinin', 'Sejarah', 'SekteKomik', 'Sexual Violence', 'Shotacon', 'Shoujo',
-  'Shoujo Ai', 'Shoujo(G)', 'Shoujom Romance', 'Shounen', 'Shounen Ai', 'Shounen Ai.Yaoi',
-  'Shounen(B)', 'Showbiz', 'Silver & Golden', 'Slice of Lie', 'Slice of Life', 'SliLifece of',
-  'SM/BDSM/SUB-DOM', 'Smut', 'Space', 'Sport', 'Sports', 'Super Power', 'Superhero',
-  'Supernatural', 'Superpowers', 'Supranatural', 'Survival', 'Sutradara', 'System',
-  'Thriller', 'Time Travel', 'Traditional Games', 'Tragedy', 'Transmigration', 'Updating',
-  'Vampire', 'Vampires', 'Video Games', 'Villainess', 'Violence', 'Virtual Reality',
-  'Web Comic', 'Webtoon', 'Webtoons', 'Western', 'Wuxia', 'Xianxia', 'Xuanhuan',
-  'Yakuzas', 'Yaoi', 'Yaoi(BL)', 'Yuri', 'Yuri(GL)', 'Zombies'
+  'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Isekai',
+  'Martial Arts', 'Mystery', 'Romance', 'Sci-fi', 'Seinen', 'Shoujo', 'Shounen',
+  'Slice of Life', 'Sports', 'Supernatural', 'Thriller', 'Tragedy'
 ].sort()
 
-const STATUS_OPTIONS = ['All', 'Ongoing', 'Complete']
-const SORT_OPTIONS = [
-  { value: 'latest', label: 'Terbaru' },
-  { value: 'popular', label: 'Populer' },
-  { value: 'title', label: 'Judul A-Z' }
-]
+const TYPES = ['Manga', 'Manhwa', 'Manhua', 'One-Shot']
+const STATUS_OPTIONS = ['Ongoing', 'Completed', 'Hiatus']
 
-function AdvancedSearchContent() {
-  const router = useRouter()
+function SearchContent() {
   const searchParams = useSearchParams()
+  const { theme } = useTheme()
+  const darkMode = theme === 'dark'
   
+  // State
   const [manhwaList, setManhwaList] = useState<Manhwa[]>([])
+  const [filteredList, setFilteredList] = useState<Manhwa[]>([])
+  const [paginatedList, setPaginatedList] = useState<Manhwa[]>([])
   const [loading, setLoading] = useState(false)
-  const [page, setPage] = useState(1)
+  const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [sortBy, setSortBy] = useState('latest')
+  const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const itemsPerPage = 24
+  
+  // Stats
+  const [totalChapters, setTotalChapters] = useState(0)
+  const [totalWithSynopsis, setTotalWithSynopsis] = useState(0)
   
   // Filters
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
-  const [selectedStatus, setSelectedStatus] = useState('All')
-  const [sortBy, setSortBy] = useState('latest')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [selectedStatus, setSelectedStatus] = useState<string[]>([])
+  
+  // Accordion state
+  const [openSections, setOpenSections] = useState({
+    genre: true,
+    type: false,
+    status: false,
+  })
+
+  // Fetch data on mount and when page changes
+  useEffect(() => {
+    fetchManhwa()
+  }, [currentPage])
+
+  // Apply filters when data or filters change
+  useEffect(() => {
+    applyFilters()
+  }, [manhwaList, searchQuery, selectedGenres, selectedTypes, selectedStatus, sortBy])
+
+  // Apply pagination when filtered list changes
+  useEffect(() => {
+    applyPagination()
+  }, [filteredList])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }, [searchQuery, selectedGenres, selectedTypes, selectedStatus, sortBy])
 
   const fetchManhwa = async () => {
     try {
       setLoading(true)
+      setError(null)
+      // Use search API with cover images from JSON files, pass current page
+      const response = await fetch(`/api/komiku/search?withCover=true&page=${currentPage}&limit=${itemsPerPage}`)
+      const data = await response.json()
       
-      // Progressive loading - load and display results incrementally
-      let allManhwa: Manhwa[] = []
-      
-      // Optimized: Load fewer pages but faster
-      const maxPages = 5 // Reduced from 10 to 5 for faster loading
-      const initialBatchSize = 2 // Load 2 pages initially for quick display
-      
-      // Load first 2 pages in parallel for instant results
-      const promises = []
-      for (let p = 1; p <= initialBatchSize; p++) {
-        const url = `/api/komiku/list?page=${p}&limit=50&withCovers=true${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
-        promises.push(fetch(url).then(res => res.json()))
+      if (data.success) {
+        const manhwa = data.data.manhwa
+        setManhwaList(manhwa)
+        setError(null)
+        
+        // Calculate stats
+        const chapters = manhwa.reduce((sum: number, m: any) => sum + (m.totalChapters || 0), 0)
+        const withSynopsis = manhwa.filter((m: any) => m.synopsis && m.synopsis.trim().length > 0).length
+        
+        setTotalChapters(chapters)
+        setTotalWithSynopsis(withSynopsis)
+      } else {
+        console.error('Search API error:', data.error)
+        // Show error to user
+        setError(data.error || 'Failed to load manga data')
+        setManhwaList([])
       }
-      
-      // Wait for first batch and show immediately
-      const firstBatch = await Promise.all(promises)
-      firstBatch.forEach(data => {
-        if (data.success && data.data.manhwa.length > 0) {
-          allManhwa = [...allManhwa, ...data.data.manhwa]
-        }
-      })
-      
-      // Show initial results immediately (100 manhwa)
-      applyFiltersAndDisplay(allManhwa)
-      setLoading(false)
-      
-      // Load remaining pages in parallel batches (background)
-      const remainingPages = []
-      for (let p = initialBatchSize + 1; p <= maxPages; p++) {
-        const url = `/api/komiku/list?page=${p}&limit=50&withCovers=true${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
-        remainingPages.push(fetch(url).then(res => res.json()))
-      }
-      
-      // Process remaining pages as they arrive
-      const remainingBatch = await Promise.all(remainingPages)
-      remainingBatch.forEach(data => {
-        if (data.success && data.data.manhwa.length > 0) {
-          allManhwa = [...allManhwa, ...data.data.manhwa]
-        }
-      })
-      
-      // Final update with all data
-      applyFiltersAndDisplay(allManhwa)
-      
-    } catch (error) {
-      console.error('Error fetching manhwa:', error)
+    } catch (err) {
+      console.error('Error fetching manhwa:', err)
+      setError('Failed to connect to server')
+      setManhwaList([])
+    } finally {
       setLoading(false)
     }
   }
-  
-  const applyFiltersAndDisplay = (allManhwa: Manhwa[]) => {
-    let results = allManhwa
-    
-    // Filter by genres (client-side)
+
+  const applyFilters = () => {
+    let results = [...manhwaList]
+
+    // Search filter
+    if (searchQuery) {
+      results = results.filter(m =>
+        m.title?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    // Genre filter
     if (selectedGenres.length > 0) {
-      results = results.filter((manhwa: Manhwa) =>
-        selectedGenres.every(genre =>
-          manhwa.genres?.some(g => g.toLowerCase() === genre.toLowerCase())
+      results = results.filter(m =>
+        selectedGenres.some(genre =>
+          m.genres?.some(g => g.toLowerCase() === genre.toLowerCase())
         )
       )
     }
-    
-    // Filter by status (client-side)
-    if (selectedStatus !== 'All') {
-      results = results.filter((manhwa: Manhwa) => {
-        const status = manhwa.status?.toLowerCase() || ''
-        if (selectedStatus === 'Complete') {
-          return status.includes('complete') ||
-                 status.includes('completed') ||
-                 status === 'end'
-        }
-        return status.includes(selectedStatus.toLowerCase())
-      })
-    }
-    
-    // Sort results
-    if (sortBy === 'title') {
-      results.sort((a: Manhwa, b: Manhwa) => 
-        (a.manhwaTitle || a.title).localeCompare(b.manhwaTitle || b.title)
+
+    // Type filter
+    if (selectedTypes.length > 0) {
+      results = results.filter(m =>
+        selectedTypes.some(type =>
+          m.type?.toLowerCase().includes(type.toLowerCase())
+        )
       )
     }
-    
-    // Client-side pagination
-    const itemsPerPage = 20
-    const totalItems = results.length
-    const totalPagesCalc = Math.ceil(totalItems / itemsPerPage)
-    const startIndex = (page - 1) * itemsPerPage
+
+    // Status filter
+    if (selectedStatus.length > 0) {
+      results = results.filter(m =>
+        selectedStatus.some(status =>
+          m.status?.toLowerCase().includes(status.toLowerCase())
+        )
+      )
+    }
+
+    // Sort
+    if (sortBy === 'title') {
+      results.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    } else if (sortBy === 'popular') {
+      results.sort((a, b) => (b.totalChapters || 0) - (a.totalChapters || 0))
+    }
+
+    setFilteredList(results)
+  }
+
+  const applyPagination = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage
     const endIndex = startIndex + itemsPerPage
-    const paginatedResults = results.slice(startIndex, endIndex)
+    const paginated = filteredList.slice(startIndex, endIndex)
     
-    setManhwaList(paginatedResults)
-    setTotalPages(totalPagesCalc)
+    setPaginatedList(paginated)
+    setTotalPages(Math.ceil(filteredList.length / itemsPerPage))
   }
 
-  const handleSearch = () => {
-    setPage(1)
-    fetchManhwa()
+
+  const toggleFilter = (type: 'genre' | 'type' | 'status', value: string) => {
+    const setters = {
+      genre: setSelectedGenres,
+      type: setSelectedTypes,
+      status: setSelectedStatus,
+    }
+    const getters = {
+      genre: selectedGenres,
+      type: selectedTypes,
+      status: selectedStatus,
+    }
+
+    const current = getters[type]
+    const setter = setters[type]
+    
+    if (current.includes(value)) {
+      setter(current.filter(v => v !== value))
+    } else {
+      setter([...current, value])
+    }
   }
 
-  const toggleGenre = (genre: string) => {
-    setSelectedGenres(prev =>
-      prev.includes(genre)
-        ? prev.filter(g => g !== genre)
-        : [...prev, genre]
-    )
-    setPage(1)
+  const toggleSection = (section: keyof typeof openSections) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
-  const clearFilters = () => {
-    setSearchQuery('')
+  const clearAllFilters = () => {
     setSelectedGenres([])
-    setSelectedStatus('All')
-    setSortBy('latest')
-    setPage(1)
+    setSelectedTypes([])
+    setSelectedStatus([])
+    setSearchQuery('')
   }
-
-  useEffect(() => {
-    fetchManhwa()
-  }, [page, selectedGenres, selectedStatus, sortBy, searchQuery])
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setPage(1)
-  }, [selectedGenres, selectedStatus, sortBy, searchQuery])
 
   return (
-    <div className="py-8">
-      <div className="container-custom">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-          🔍 Pencarian Lanjutan
-        </h1>
+    <div className={`min-h-screen font-['Inter'] transition-colors duration-300 ${
+      darkMode ? 'bg-[#0a0f1a] text-white' : 'bg-gray-50 text-gray-900'
+    }`}>
+      {/* Main Container - Flex Layout */}
+      <div className="flex min-h-screen">
+        {/* Sticky Sidebar */}
+        <aside className={`w-64 sticky top-0 self-start h-screen border-r overflow-y-auto transition-colors ${
+          darkMode ? 'bg-dark-900 border-gray-800' : 'bg-white border-gray-200'
+        }`}>
+          <div className="p-4">
+      
 
-        {/* Modern Filter Section */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 dark:from-dark-800 dark:to-dark-900 rounded-2xl shadow-xl p-6 mb-8 border border-slate-700/50">
-          {/* Filter Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            {/* Genre Dropdown */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300 block">Genre</label>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    toggleGenre(e.target.value)
-                    e.target.value = '' // Reset dropdown
-                  }
-                }}
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none hover:bg-slate-700"
-                defaultValue=""
-              >
-                <option value="" disabled>Genre All ▼</option>
-                {GENRES.map((genre) => (
-                  <option key={genre} value={genre}>
-                    {genre}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Status Dropdown */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300 block">Status</label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => {
-                  setSelectedStatus(e.target.value)
-                  setPage(1)
-                }}
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none hover:bg-slate-700"
-              >
-                <option value="All">Status All ▼</option>
-                {STATUS_OPTIONS.filter(s => s !== 'All').map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Sort Dropdown */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300 block">Urutan</label>
-              <select
-                value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value)
-                  setPage(1)
-                }}
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none hover:bg-slate-700"
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Search Input */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300 block">Cari Manhwa</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Cari judul manhwa..."
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none hover:bg-slate-700"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons Row */}
-          <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-700/50">
-            {/* Search Button */}
-            <button
-              onClick={handleSearch}
-              className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-lg transition-all shadow-lg shadow-red-900/30 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              Search
-            </button>
-
-            {/* View Mode Toggle */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-4 py-2.5 rounded-lg font-medium transition-all ${
-                  viewMode === 'grid'
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
-                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                Grid
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-4 py-2.5 rounded-lg font-medium transition-all ${
-                  viewMode === 'list'
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
-                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                Text Mode
-              </button>
-            </div>
-
-            {/* Clear Filters */}
-            {(selectedGenres.length > 0 || selectedStatus !== 'All' || sortBy !== 'latest' || searchQuery) && (
-              <button
-                onClick={clearFilters}
-                className="ml-auto px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-lg transition-all flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Reset Filters
-              </button>
-            )}
-          </div>
-
-          {/* Active Genre Tags */}
-          {selectedGenres.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-700/50">
-              <span className="text-sm text-slate-400 font-medium mr-2">Genre dipilih:</span>
-              {selectedGenres.map((genre) => (
-                <span
-                  key={genre}
-                  onClick={() => toggleGenre(genre)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white text-sm font-medium rounded-full cursor-pointer hover:from-primary-700 hover:to-primary-800 transition-all shadow-md hover:shadow-lg"
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={`text-lg font-bold flex items-center gap-2 ${
+                darkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                <SlidersHorizontal className="w-4 h-4 text-primary-500" />
+                Filters
+              </h2>
+              {(selectedGenres.length > 0 || selectedTypes.length > 0 || selectedStatus.length > 0) && (
+                <button
+                  onClick={clearAllFilters}
+                  className={`text-xs transition-colors ${
+                    darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  {genre}
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </span>
-              ))}
+                  Clear
+                </button>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Results */}
-        <div>
-            {/* Results Count */}
-            {!loading && (
-              <div className="mb-4">
-                <p className="text-gray-600 dark:text-gray-400">
-                  {manhwaList.length > 0 ? (
-                    <>
-                      Menampilkan {manhwaList.length} manhwa
-                      {totalPages > 1 && ` (Halaman ${page} dari ${totalPages})`}
-                    </>
-                  ) : (
-                    'Tidak ada hasil'
-                  )}
-                </p>
+            {/* Genre Accordion */}
+            <div className="mb-3">
+              <button
+                onClick={() => toggleSection('genre')}
+                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors ${
+                  darkMode ? 'bg-dark-800 hover:bg-dark-700' : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <span className={`font-semibold text-sm ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>Genre</span>
+                {openSections.genre ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              <AnimatePresence>
+                {openSections.genre && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
+                      {GENRES.map(genre => (
+                        <label key={genre} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-colors ${
+                          darkMode ? 'hover:bg-dark-800' : 'hover:bg-gray-100'
+                        }`}>
+                          <input
+                            type="checkbox"
+                            checked={selectedGenres.includes(genre)}
+                            onChange={() => toggleFilter('genre', genre)}
+                            className="w-3.5 h-3.5 accent-primary-600"
+                          />
+                          <span className={`text-xs ${
+                            darkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>{genre}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Type Accordion */}
+            <div className="mb-3">
+              <button
+                onClick={() => toggleSection('type')}
+                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors ${
+                  darkMode ? 'bg-dark-800 hover:bg-dark-700' : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <span className={`font-semibold text-sm ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>Type</span>
+                {openSections.type ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              <AnimatePresence>
+                {openSections.type && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 space-y-1">
+                      {TYPES.map(type => (
+                        <label key={type} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-colors ${
+                          darkMode ? 'hover:bg-dark-800' : 'hover:bg-gray-100'
+                        }`}>
+                          <input
+                            type="checkbox"
+                            checked={selectedTypes.includes(type)}
+                            onChange={() => toggleFilter('type', type)}
+                            className="w-3.5 h-3.5 accent-primary-600"
+                          />
+                          <span className={`text-xs ${
+                            darkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>{type}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Status Accordion */}
+            <div className="mb-3">
+              <button
+                onClick={() => toggleSection('status')}
+                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors ${
+                  darkMode ? 'bg-dark-800 hover:bg-dark-700' : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <span className={`font-semibold text-sm ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>Status</span>
+                {openSections.status ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              <AnimatePresence>
+                {openSections.status && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 space-y-1">
+                      {STATUS_OPTIONS.map(status => (
+                        <label key={status} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-colors ${
+                          darkMode ? 'hover:bg-dark-800' : 'hover:bg-gray-100'
+                        }`}>
+                          <input
+                            type="checkbox"
+                            checked={selectedStatus.includes(status)}
+                            onChange={() => toggleFilter('status', status)}
+                            className="w-3.5 h-3.5 accent-primary-600"
+                          />
+                          <span className={`text-xs ${
+                            darkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>{status}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className={`flex-1 transition-colors ${
+          darkMode ? 'bg-dark-950' : 'bg-gray-50'
+        }`}>
+          {/* Top Bar */}
+          <div className={`sticky top-0 z-20 border-b p-4 transition-colors ${
+            darkMode ? 'bg-dark-900 border-gray-800' : 'bg-white border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`} />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search manga..."
+                    className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:border-primary-600 transition-colors ${
+                      darkMode 
+                        ? 'bg-dark-800 border-gray-700 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                  />
+                </div>
               </div>
-            )}
+              <div className="flex items-center gap-3">
+                {/* View Mode Toggle */}
+                <div className={`flex gap-1 p-1 rounded-lg border ${
+                  darkMode ? 'bg-dark-800 border-gray-700' : 'bg-gray-200 border-gray-300'
+                }`}>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded transition-all duration-200 ${
+                      viewMode === 'grid' 
+                        ? 'bg-primary-600 text-white shadow-lg' 
+                        : darkMode
+                          ? 'text-gray-400 hover:text-white hover:bg-dark-700'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
+                    }`}
+                    title="Grid View"
+                  >
+                    <Grid3x3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded transition-all duration-200 ${
+                      viewMode === 'list' 
+                        ? 'bg-primary-600 text-white shadow-lg' 
+                        : darkMode
+                          ? 'text-gray-400 hover:text-white hover:bg-dark-700'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
+                    }`}
+                    title="List View"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
 
-            {loading ? (
-              <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4' : 'space-y-2'}>
-                {[...Array(15)].map((_, i) => (
-                  <div key={i} className={viewMode === 'grid' ? 'skeleton h-80 rounded-lg' : 'skeleton h-12 rounded-lg'} />
+                {/* Sort Dropdown */}
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className={`px-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-primary-600 cursor-pointer transition-colors ${
+                    darkMode 
+                      ? 'bg-dark-800 border-gray-700 text-white hover:bg-dark-700' 
+                      : 'bg-white border-gray-300 text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <option value="latest">Latest Update</option>
+                  <option value="popular">Most Popular</option>
+                  <option value="title">A-Z</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Active Filters */}
+            {(selectedGenres.length > 0 || selectedTypes.length > 0 || selectedStatus.length > 0) && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[...selectedGenres, ...selectedTypes, ...selectedStatus].map(filter => (
+                  <span
+                    key={filter}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-600 text-white text-xs rounded-full"
+                  >
+                    {filter}
+                    <button
+                      onClick={() => {
+                        if (selectedGenres.includes(filter)) toggleFilter('genre', filter)
+                        if (selectedTypes.includes(filter)) toggleFilter('type', filter)
+                        if (selectedStatus.includes(filter)) toggleFilter('status', filter)
+                      }}
+                      className="hover:bg-primary-700 rounded-full p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
                 ))}
               </div>
-            ) : manhwaList.length > 0 ? (
+            )}
+          </div>
+
+          {/* Grid Content */}
+          <div className="p-6">
+            {loading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {[...Array(24)].map((_, i) => (
+                  <div key={i} className="skeleton h-80 rounded-lg" />
+                ))}
+              </div>
+            ) : error ? (
+              <div className={`text-center py-20 rounded-xl border ${
+                darkMode ? 'bg-dark-900 border-gray-800' : 'bg-white border-gray-200'
+              }`}>
+                <div className="text-6xl mb-4">⚠️</div>
+                <h3 className={`text-2xl font-bold mb-2 ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>Data Not Available</h3>
+                <p className={`mb-4 ${
+                  darkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>{error}</p>
+                <div className={`max-w-md mx-auto p-4 rounded-lg ${
+                  darkMode ? 'bg-dark-800' : 'bg-gray-100'
+                }`}>
+                  <p className={`text-sm text-left ${
+                    darkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    <strong>Required:</strong> komiku-list.json file must exist in bucket komiku-data.
+                  </p>
+                  <p className={`text-xs mt-2 text-left ${
+                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    This file contains the pre-generated index of all manga for fast searching.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchManhwa}
+                  className="mt-6 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : paginatedList.length > 0 ? (
               <>
-                {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {manhwaList.map((manhwa) => (
-                      <ManhwaCard key={manhwa.slug} manhwa={manhwa} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {manhwaList.map((manhwa, index) => {
-                      const cleanTitle = (manhwa.manhwaTitle || manhwa.title)
-                        .replace(/^Komik\s+/i, '')
-                        .replace(/\s+Bahasa Indonesia$/i, '')
-                        .trim()
-                      const cleanSlug = manhwa.slug.replace(/-bahasa-indonesia$/, '')
-                      
-                      return (
-                        <Link
-                          key={manhwa.slug}
-                          href={`/manhwa/${cleanSlug}`}
-                          className="flex items-center gap-4 p-3 bg-white dark:bg-dark-800 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors group"
-                        >
-                          <span className="text-gray-500 dark:text-gray-400 font-mono text-sm w-8 text-right flex-shrink-0">
-                            {((page - 1) * 30 + index + 1).toString().padStart(2, '0')}
-                          </span>
-                          <h3 className="font-medium text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors flex-1">
-                            {cleanTitle}
-                          </h3>
-                          {manhwa.status && (
-                            <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ${
-                              manhwa.status.toLowerCase().includes('ongoing')
-                                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
-                                : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                            }`}>
-                              {manhwa.status}
-                            </span>
-                          )}
-                          {manhwa.totalChapters && (
-                            <span className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
-                              {manhwa.totalChapters} Ch
-                            </span>
-                          )}
+                {/* Grid View */}
+                {viewMode === 'grid' && (
+                  <motion.div
+                    layout
+                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+                  >
+                  <AnimatePresence>
+                    {paginatedList.map((manhwa, index) => (
+                      <motion.div
+                        key={manhwa.slug}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.2, delay: index * 0.02 }}
+                      >
+                        <Link href={`/manhwa/${manhwa.slug}`}>
+                          <div className={`group relative rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition-all duration-300 ${
+                            darkMode ? 'bg-dark-900' : 'bg-white shadow-md'
+                          }`}>
+                            {/* Cover Image */}
+                            <div className="relative w-full aspect-[2/3] overflow-hidden">
+                              {(() => {
+                                const coverImg = (manhwa as any).coverImage || manhwa.image
+                                return coverImg && (coverImg.startsWith('http://') || coverImg.startsWith('https://')) ? (
+                                  <Image
+                                    src={coverImg}
+                                    alt={manhwa.title || ''}
+                                    fill
+                                    className="object-cover group-hover:scale-110 transition-transform duration-300"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                    <span className="text-gray-600 text-xs">No Image</span>
+                                  </div>
+                                )
+                              })()}
+                              
+                              {/* Status Badge */}
+                              {manhwa.status && (
+                                <div className="absolute top-2 left-2">
+                                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                    manhwa.status.toLowerCase().includes('ongoing')
+                                      ? 'bg-green-600 text-white'
+                                      : 'bg-blue-600 text-white'
+                                  }`}>
+                                    {manhwa.status}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Country Flag */}
+                              <div className="absolute top-2 right-2">
+                                <div className="w-8 h-8 rounded-full overflow-hidden shadow-lg bg-dark-800">
+                                  <Image
+                                    src={
+                                      manhwa.type?.toLowerCase().includes('korean') ? '/korea.png' : 
+                                      manhwa.type?.toLowerCase().includes('japanese') ? '/japan.png' : 
+                                      manhwa.type?.toLowerCase().includes('chinese') ? '/china.png' : '/korea.png'
+                                    }
+                                    alt="Flag"
+                                    width={32}
+                                    height={32}
+                                    className="object-cover w-full h-full"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Chapter Badge */}
+                              {manhwa.totalChapters && (
+                                <div className="absolute bottom-2 right-2">
+                                  <span className="text-xs px-2 py-0.5 bg-black/70 text-white rounded font-medium">
+                                    Ch. {manhwa.totalChapters}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Title */}
+                            <div className="p-2">
+                              <h3 className={`font-medium text-xs line-clamp-2 group-hover:text-primary-400 transition-colors ${
+                                darkMode ? 'text-white' : 'text-gray-900'
+                              }`}>
+                                {manhwa.title?.replace(/^Komik\s+/i, '')}
+                              </h3>
+                            </div>
+                          </div>
                         </Link>
-                      )
-                    })}
-                  </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  </motion.div>
                 )}
 
-                {/* Pagination */}
+                {/* List View */}
+                {viewMode === 'list' && (
+                  <motion.div layout className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <AnimatePresence>
+                      {paginatedList.map((manhwa, index) => (
+                        <motion.div
+                          key={manhwa.slug}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          transition={{ duration: 0.2, delay: index * 0.02 }}
+                        >
+                          <Link href={`/manhwa/${manhwa.slug}`}>
+                            <div className={`flex gap-4 rounded-lg p-3 hover:ring-2 hover:ring-primary-500 transition-all duration-300 ${
+                              darkMode ? 'bg-dark-900 hover:bg-dark-800' : 'bg-white hover:bg-gray-50 shadow-md'
+                            }`}>
+                              {/* Thumbnail */}
+                              <div className="relative w-20 h-28 flex-shrink-0 rounded overflow-hidden">
+                                {(() => {
+                                  const coverImg = (manhwa as any).coverImage || manhwa.image
+                                  return coverImg && (coverImg.startsWith('http://') || coverImg.startsWith('https://')) ? (
+                                    <Image
+                                      src={coverImg}
+                                      alt={manhwa.title || ''}
+                                      fill
+                                      className="object-cover"
+                                      unoptimized
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                      <span className="text-gray-600 text-xs">No Image</span>
+                                    </div>
+                                  )
+                                })()}
+                              </div>
+
+                              {/* Details */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <h3 className={`font-bold text-base line-clamp-1 hover:text-primary-400 transition-colors flex-1 ${
+                                    darkMode ? 'text-white' : 'text-gray-900'
+                                  }`}>
+                                    {manhwa.title?.replace(/^Komik\s+/i, '')}
+                                  </h3>
+                                  {/* Country Flag */}
+                                  <div className="w-6 h-6 rounded-full overflow-hidden shadow-lg bg-dark-800 flex-shrink-0">
+                                    <Image
+                                      src={
+                                        manhwa.type?.toLowerCase().includes('korean') ? '/korea.png' : 
+                                        manhwa.type?.toLowerCase().includes('japanese') ? '/japan.png' : 
+                                        manhwa.type?.toLowerCase().includes('chinese') ? '/china.png' : '/korea.png'
+                                      }
+                                      alt="Flag"
+                                      width={24}
+                                      height={24}
+                                      className="object-cover w-full h-full"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                  {manhwa.status && (
+                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                      manhwa.status.toLowerCase().includes('ongoing')
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-blue-600 text-white'
+                                    }`}>
+                                      {manhwa.status}
+                                    </span>
+                                  )}
+                                  {manhwa.genres && manhwa.genres.slice(0, 3).map((genre, idx) => (
+                                    <span key={idx} className="text-xs bg-primary-900/50 text-primary-300 px-2 py-0.5 rounded">
+                                      {genre}
+                                    </span>
+                                  ))}
+                                </div>
+                                {(() => {
+                                  const synopsis = (manhwa as any).fullSynopsis || manhwa.synopsis
+                                  return synopsis && (
+                                    <p className={`text-xs line-clamp-2 mb-2 ${
+                                      darkMode ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>
+                                      {synopsis}
+                                    </p>
+                                  )
+                                })()}
+                                <p className={`text-xs ${
+                                  darkMode ? 'text-gray-500' : 'text-gray-500'
+                                }`}>
+                                  {manhwa.totalChapters ? `${manhwa.totalChapters} Chapters` : 'No chapters'}
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+
+                {/* Pagination Controls */}
                 {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-2 mt-8">
+                  <div className="mt-8 flex items-center justify-center gap-2">
+                    {/* Previous Button */}
                     <button
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="px-4 py-2 bg-gray-200 dark:bg-dark-700 rounded-lg disabled:opacity-50"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+                        darkMode
+                          ? 'bg-dark-800 hover:bg-dark-700 disabled:bg-dark-900 disabled:text-gray-600 text-white'
+                          : 'bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 text-gray-900 border border-gray-300'
+                      } disabled:cursor-not-allowed`}
                     >
-                      ← Previous
+                      ← Prev
                     </button>
-                    <span className="text-gray-700 dark:text-gray-300">
-                      {page} / {totalPages}
-                    </span>
+
+                    {/* Page Numbers */}
+                    <div className="flex gap-2 flex-wrap justify-center">
+                      {/* First Page */}
+                      {currentPage > 3 && (
+                        <>
+                          <button
+                            onClick={() => setCurrentPage(1)}
+                            className={`px-3 py-2 rounded-lg transition-colors text-sm ${
+                              darkMode
+                                ? 'bg-dark-800 hover:bg-dark-700 text-white'
+                                : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
+                            }`}
+                          >
+                            1
+                          </button>
+                          {currentPage > 4 && <span className={`px-2 py-2 text-sm ${
+                            darkMode ? 'text-gray-500' : 'text-gray-400'
+                          }`}>...</span>}
+                        </>
+                      )}
+
+                      {/* Current Page Range */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          return page === currentPage || 
+                                 page === currentPage - 1 || 
+                                 page === currentPage + 1
+                        })
+                        .map(page => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-2 rounded-lg transition-colors text-sm ${
+                              currentPage === page
+                                ? 'bg-primary-600 text-white font-bold shadow-lg'
+                                : darkMode
+                                  ? 'bg-dark-800 hover:bg-dark-700 text-white'
+                                  : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+
+                      {/* Last Page */}
+                      {currentPage < totalPages - 2 && (
+                        <>
+                          {currentPage < totalPages - 3 && <span className={`px-2 py-2 text-sm ${
+                            darkMode ? 'text-gray-500' : 'text-gray-400'
+                          }`}>...</span>}
+                          <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            className={`px-3 py-2 rounded-lg transition-colors text-sm ${
+                              darkMode
+                                ? 'bg-dark-800 hover:bg-dark-700 text-white'
+                                : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
+                            }`}
+                          >
+                            {totalPages}
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Next Button */}
                     <button
-                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      className="px-4 py-2 bg-gray-200 dark:bg-dark-700 rounded-lg disabled:opacity-50"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+                        darkMode
+                          ? 'bg-dark-800 hover:bg-dark-700 disabled:bg-dark-900 disabled:text-gray-600 text-white'
+                          : 'bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 text-gray-900 border border-gray-300'
+                      } disabled:cursor-not-allowed`}
                     >
                       Next →
                     </button>
@@ -451,37 +794,34 @@ function AdvancedSearchContent() {
                 )}
               </>
             ) : (
-              <div className="text-center py-12">
-                <svg className="w-24 h-24 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  Tidak ada hasil
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Coba ubah filter atau kata kunci pencarian
-                </p>
+              <div className="text-center py-20">
+                <div className="text-6xl mb-4">😢</div>
+                <h3 className={`text-2xl font-bold mb-2 ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>No results found</h3>
+                <p className={`${
+                  darkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>Try adjusting your filters or search query</p>
               </div>
             )}
           </div>
-        </div>
+        </main>
       </div>
+    </div>
   )
 }
 
-export default function AdvancedSearchPage() {
+export default function SearchPage() {
   return (
     <Suspense fallback={
-      <div className="py-8">
-        <div className="container-custom">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
-          </div>
+      <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-white">Loading...</p>
         </div>
       </div>
     }>
-      <AdvancedSearchContent />
+      <SearchContent />
     </Suspense>
   )
 }

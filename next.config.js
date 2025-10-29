@@ -35,6 +35,11 @@ const nextConfig = {
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
+  // Disable caching in development to prevent stale content
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
   async headers() {
     return [
       {
@@ -63,7 +68,9 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, s-maxage=300, stale-while-revalidate=600'
+            value: process.env.NODE_ENV === 'development' 
+              ? 'no-store, no-cache, must-revalidate' 
+              : 'public, s-maxage=300, stale-while-revalidate=600'
           },
         ],
       },

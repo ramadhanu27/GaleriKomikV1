@@ -103,7 +103,7 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
         {/* NEW Badge (if recently modified and showNewBadge is true) */}
         {showNewBadge && manhwa.lastModified && isRecent(manhwa.lastModified) && (
           <div className="absolute top-2 left-12">
-            <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">
+            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1">
               NEW
             </span>
           </div>
@@ -117,16 +117,6 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
             </span>
           </div>
         )}
-
-        {/* Rating Badge */}
-        {manhwa.rating && (
-          <div className="absolute top-2 right-2">
-            <span className="bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
-              ⭐ {manhwa.rating}
-            </span>
-          </div>
-        )}
-
         {/* Title Overlay */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-3 pt-8">
           <h3 className="font-bold text-white text-sm line-clamp-2 leading-tight mb-1 group-hover:text-primary-400 transition-colors">
