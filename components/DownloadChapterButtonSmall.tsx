@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { generateChapterPDF } from '@/lib/pdfMakeGenerator'
-import DownloadListModal from './DownloadListModal'
 
 interface DownloadChapterButtonSmallProps {
   manhwaSlug: string
@@ -10,6 +9,7 @@ interface DownloadChapterButtonSmallProps {
   chapterNumber: string
   chapterTitle?: string
   onClick?: (e: React.MouseEvent) => void
+  onModalStateChange?: (isOpen: boolean) => void
 }
 
 export default function DownloadChapterButtonSmall({
@@ -17,46 +17,50 @@ export default function DownloadChapterButtonSmall({
   manhwaTitle,
   chapterNumber,
   chapterTitle,
-  onClick
+  onClick,
+  onModalStateChange
 }: DownloadChapterButtonSmallProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [showModal, setShowModal] = useState(false)
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    e.nativeEvent.stopImmediatePropagation()
     
     if (isGenerating) return
     
     if (onClick) {
       onClick(e)
+      return
     }
     
-    // Open modal instead of direct download
-    setShowModal(true)
+    // Direct download without modal/panel
+    handleDirectPDFDownload()
   }
 
   const handleDirectPDFDownload = async () => {
-    setIsGenerating(true)
-    setShowModal(false)
-    
     try {
+      setIsGenerating(true)
+      
       // Fetch chapter data
       const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapterNumber}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch chapter data')
+      }
+      
       const data = await response.json()
       
       if (!data.success || !data.data.chapter) {
-        throw new Error('Failed to fetch chapter data')
+        throw new Error('Chapter data not found')
       }
       
       const chapter = data.data.chapter
       const images = chapter.images || []
       
       if (images.length === 0) {
-        alert('Chapter ini tidak memiliki gambar')
-        setIsGenerating(false)
-        return
+        throw new Error('Chapter ini tidak memiliki gambar')
       }
       
       // Import getProxiedImageUrl dynamically
@@ -94,18 +98,6 @@ export default function DownloadChapterButtonSmall({
     }
   }
 
-  // Mock download files - in production, fetch from API
-  const downloadFiles = [
-    {
-      id: '1',
-      name: `${manhwaTitle}_Ch${chapterNumber}.pdf`,
-      type: 'PDF' as const,
-      size: '15.2 MB',
-      url: '#', // Will be generated on demand
-      uploadedAt: 'Baru saja'
-    }
-  ]
-
   return (
     <>
       <button
@@ -136,17 +128,6 @@ export default function DownloadChapterButtonSmall({
           </svg>
         )}
       </button>
-
-      {/* Download List Modal */}
-      <DownloadListModal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        manhwaTitle={manhwaTitle}
-        chapterNumber={chapterNumber}
-        chapterTitle={chapterTitle}
-        downloads={downloadFiles}
-        onDownloadPDF={handleDirectPDFDownload}
-      />
     </>
   )
 }

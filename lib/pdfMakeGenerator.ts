@@ -16,9 +16,78 @@ interface ChapterData {
 }
 
 /**
+ * Compress image to reduce file size while maintaining quality
+ * Optimized for manga/comic images to achieve < 5MB total file size
+ * Using optimal settings: 1080px width @ 60% quality (JPEG)
+ */
+async function compressImage(base64: string, maxWidth: number = 1080, quality: number = 0.6): Promise<string> {
+  return new Promise((resolve, reject) => {
+    try {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      
+      img.onload = () => {
+        // Calculate new dimensions while maintaining aspect ratio
+        let width = img.width
+        let height = img.height
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+        
+        // Create canvas for compression
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'))
+          return
+        }
+        
+        // Enable image smoothing for better quality
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        
+        // Fill white background (for transparency handling)
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, width, height)
+        
+        // Draw image on canvas
+        ctx.drawImage(img, 0, 0, width, height)
+        
+        // Convert to compressed base64 (JPEG format for better compression)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', quality)
+        
+        // Calculate compression ratio
+        const originalSize = base64.length
+        const compressedSize = compressedBase64.length
+        const reduction = Math.round((1 - compressedSize / originalSize) * 100)
+        
+        console.log(
+          `✓ Compressed: ${img.width}x${img.height} → ${width}x${height} @ ${Math.round(quality * 100)}% | ` +
+          `Size: ${(originalSize / 1024).toFixed(0)}KB → ${(compressedSize / 1024).toFixed(0)}KB (${reduction}% smaller)`
+        )
+        resolve(compressedBase64)
+      }
+      
+      img.onerror = () => {
+        reject(new Error('Failed to load image for compression'))
+      }
+      
+      img.src = base64
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
+
+/**
  * Convert image URL to base64 using API route (bypasses CORS)
  */
-async function getBase64ImageFromUrl(url: string): Promise<string> {
+async function getBase64ImageFromUrl(url: string, compress: boolean = true): Promise<string> {
   try {
     // Use API route to convert image to base64
     const response = await fetch(`/api/image-to-base64?url=${encodeURIComponent(url)}`)
@@ -33,7 +102,20 @@ async function getBase64ImageFromUrl(url: string): Promise<string> {
       throw new Error(data.error || 'Failed to convert image')
     }
     
-    return data.data.base64
+    let base64 = data.data.base64
+    
+    // Compress image if enabled (optimal compression: 1080px @ 60% for < 5MB total)
+    if (compress) {
+      try {
+        base64 = await compressImage(base64, 1080, 0.6)
+        console.log('Image compressed successfully (1080px @ 60% quality)')
+      } catch (compressError) {
+        console.warn('Compression failed, using original image:', compressError)
+        // Use original if compression fails
+      }
+    }
+    
+    return base64
   } catch (error) {
     console.error('Error converting image to base64:', error)
     throw error
@@ -90,54 +172,20 @@ export async function generateChapterPDF(
       onProgress(images.length, images.length, 'Membuat PDF...')
     }
 
-    // Create PDF document definition
+    // Create PDF document definition with optimized settings
     const docDefinition: any = {
       pageSize: {
-        width: 595.28,  // A4 width in points
-        height: 'auto'  // Auto height to fit content
+        width: 595.28,
+        height: 'auto'
       },
       pageMargins: [0, 0, 0, 0], // No margins for full-width images
-      
-      // Footer only
-      footer: (currentPage: number, pageCount: number) => {
-        if (currentPage === 1) return null // No footer on cover page
-        
-        return {
-          text: `${currentPage - 1}`, // Page number (excluding cover)
-          alignment: 'center',
-          fontSize: 10,
-          color: '#666',
-          margin: [0, 10, 0, 10]
-        }
+      compress: true, // Enable PDF compression
+      info: {
+        title: '', // No title in PDF metadata
       },
       
       content: [
-        // Simple title page
-        {
-          stack: [
-            {
-              text: manhwaTitle,
-              style: 'title',
-              alignment: 'center',
-              margin: [40, 150, 40, 20]
-            },
-            {
-              text: `Chapter ${chapterNumber}`,
-              style: 'subtitle',
-              alignment: 'center',
-              margin: [40, 0, 40, 10]
-            },
-            chapterTitle ? {
-              text: chapterTitle,
-              style: 'chapterTitle',
-              alignment: 'center',
-              margin: [40, 0, 40, 150]
-            } : { text: '', margin: [0, 0, 0, 150] }
-          ],
-          pageBreak: 'after'
-        },
-        
-        // Images - full width, auto height
+        // All images in one continuous page
         ...base64Images.map((base64, index) => {
           if (!base64) {
             return {
@@ -145,55 +193,18 @@ export async function generateChapterPDF(
               alignment: 'center',
               margin: [0, 250, 0, 250],
               color: '#999',
-              fontSize: 14,
-              pageBreak: index < base64Images.length - 1 ? 'after' : undefined
+              fontSize: 14
             }
           }
           
           return {
-            stack: [
-              {
-                image: base64,
-                width: 595.28, // Full A4 width
-                alignment: 'center'
-              },
-              {
-                text: 'galerikomik.cyou',
-                absolutePosition: { x: 0, y: 50 },
-                alignment: 'center',
-                fontSize: 24,
-                bold: true,
-                color: '#ffffff',
-                opacity: 0.15,
-                width: 595.28
-              }
-            ],
-            pageBreak: index < base64Images.length - 1 ? 'after' : undefined
+            image: base64,
+            fit: [595.28, 10000], // Fit to width, unlimited height (no cropping)
+            alignment: 'center',
+            margin: [0, 0, 0, 0] // No spacing between images
           }
         })
-      ],
-      
-      styles: {
-        title: {
-          fontSize: 24,
-          bold: true,
-          color: '#1e293b'
-        },
-        subtitle: {
-          fontSize: 18,
-          bold: true,
-          color: '#475569'
-        },
-        chapterTitle: {
-          fontSize: 14,
-          italics: true,
-          color: '#64748b'
-        },
-        metadata: {
-          fontSize: 10,
-          color: '#94a3b8'
-        }
-      }
+      ]
     }
 
     // Generate and download PDF
@@ -263,51 +274,17 @@ export async function openChapterPDF(
 
     const docDefinition: any = {
       pageSize: {
-        width: 595.28,  // A4 width in points
-        height: 'auto'  // Auto height to fit content
+        width: 595.28,
+        height: 'auto'
       },
       pageMargins: [0, 0, 0, 0], // No margins for full-width images
-      
-      // Footer only
-      footer: (currentPage: number, pageCount: number) => {
-        if (currentPage === 1) return null // No footer on cover page
-        
-        return {
-          text: `${currentPage - 1}`, // Page number (excluding cover)
-          alignment: 'center',
-          fontSize: 10,
-          color: '#666',
-          margin: [0, 10, 0, 10]
-        }
+      compress: true, // Enable PDF compression
+      info: {
+        title: '', // No title in PDF metadata
       },
       
       content: [
-        // Simple title page
-        {
-          stack: [
-            {
-              text: manhwaTitle,
-              style: 'title',
-              alignment: 'center',
-              margin: [40, 150, 40, 20]
-            },
-            {
-              text: `Chapter ${chapterNumber}`,
-              style: 'subtitle',
-              alignment: 'center',
-              margin: [40, 0, 40, 10]
-            },
-            chapterTitle ? {
-              text: chapterTitle,
-              style: 'chapterTitle',
-              alignment: 'center',
-              margin: [40, 0, 40, 150]
-            } : { text: '', margin: [0, 0, 0, 150] }
-          ],
-          pageBreak: 'after'
-        },
-        
-        // Images - full width, auto height
+        // All images in one continuous page
         ...base64Images.map((base64, index) => {
           if (!base64) {
             return {
@@ -315,55 +292,18 @@ export async function openChapterPDF(
               alignment: 'center',
               margin: [0, 250, 0, 250],
               color: '#999',
-              fontSize: 14,
-              pageBreak: index < base64Images.length - 1 ? 'after' : undefined
+              fontSize: 14
             }
           }
           
           return {
-            stack: [
-              {
-                image: base64,
-                width: 595.28, // Full A4 width
-                alignment: 'center'
-              },
-              {
-                text: 'galerikomik.cyou',
-                absolutePosition: { x: 0, y: 50 },
-                alignment: 'center',
-                fontSize: 24,
-                bold: true,
-                color: '#ffffff',
-                opacity: 0.15,
-                width: 595.28
-              }
-            ],
-            pageBreak: index < base64Images.length - 1 ? 'after' : undefined
+            image: base64,
+            fit: [595.28, 10000], // Fit to width, unlimited height (no cropping)
+            alignment: 'center',
+            margin: [0, 0, 0, 0] // No spacing between images
           }
         })
-      ],
-      
-      styles: {
-        title: {
-          fontSize: 24,
-          bold: true,
-          color: '#1e293b'
-        },
-        subtitle: {
-          fontSize: 18,
-          bold: true,
-          color: '#475569'
-        },
-        chapterTitle: {
-          fontSize: 14,
-          italics: true,
-          color: '#64748b'
-        },
-        metadata: {
-          fontSize: 10,
-          color: '#94a3b8'
-        }
-      }
+      ]
     }
     
     if (onProgress) {

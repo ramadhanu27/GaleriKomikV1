@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { getProxiedImageUrl } from '@/lib/imageProxy'
 import { useAuth } from '@/contexts/AuthContext'
 import { addReadingHistory } from '@/lib/readingHistory'
-import PrintChapterButton from '@/components/PrintChapterButton'
 
 interface ChapterData {
   chapter: any
@@ -367,9 +366,6 @@ export default function ChapterPage() {
               </svg>
               <span className="hidden sm:inline font-medium">List</span>
             </button>
-
-            {/* Print Chapter Button */}
-            <PrintChapterButton />
 
             {/* Next Button */}
             <button

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { Chapter } from '@/types'
 import DownloadChapterButtonSmall from './DownloadChapterButtonSmall'
+import FloatingDownloadBar from './FloatingDownloadBar'
 
 interface ChapterGridProps {
   chapters: Chapter[]
@@ -17,6 +18,14 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set())
   const [isDownloadingMultiple, setIsDownloadingMultiple] = useState(false)
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState<{
+    percent: number
+    loadedMB: number
+    totalMB: number
+    currentFile: number
+    totalFiles: number
+  } | undefined>(undefined)
   const itemsPerPage = 50
   
   // Sort and filter chapters
@@ -92,6 +101,19 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     setCurrentPage(1)
   }
 
+  // Disable pointer events and body scroll when modal is open
+  useEffect(() => {
+    const chapterList = document.querySelector('.chapter-grid-container')
+    if (chapterList) {
+      (chapterList as HTMLElement).style.pointerEvents = isAnyModalOpen ? 'none' : 'auto'
+    }
+    document.body.style.overflow = isAnyModalOpen ? 'hidden' : 'auto'
+    
+    return () => {
+      document.body.style.overflow = 'auto'
+    }
+  }, [isAnyModalOpen])
+
   // Multi-select handlers
   const toggleChapterSelection = (chapterNumber: string) => {
     const newSelected = new Set(selectedChapters)
@@ -135,6 +157,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
       alert('Gagal mengunduh chapter. Silakan coba lagi.')
     } finally {
       setIsDownloadingMultiple(false)
+      setDownloadProgress(undefined)
     }
   }
 
@@ -162,11 +185,26 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
       return getProxiedImageUrl(originalUrl)
     })
     
+    // Estimate total size (avg 100KB per compressed image)
+    const estimatedTotalMB = (images.length * 100) / 1024
+    
     await generateChapterPDF({
       manhwaTitle: manhwaTitle || '',
       chapterNumber,
       chapterTitle: chapter.title,
       images: proxiedImages
+    }, (current, total, status) => {
+      // Update progress
+      const percent = (current / total) * 100
+      const loadedMB = (current / total) * estimatedTotalMB
+      
+      setDownloadProgress({
+        percent,
+        loadedMB,
+        totalMB: estimatedTotalMB,
+        currentFile: current,
+        totalFiles: total
+      })
     })
   }
 
@@ -177,6 +215,10 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     
     const { getProxiedImageUrl } = await import('@/lib/imageProxy')
     const { generateChapterPDF } = await import('@/lib/pdfMakeGenerator')
+    
+    // Calculate total estimated size
+    let totalEstimatedMB = 0
+    let processedMB = 0
     
     // Fetch all chapters
     for (let i = 0; i < chapterNumbers.length; i++) {
@@ -198,6 +240,19 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           return getProxiedImageUrl(originalUrl)
         })
         
+        // Estimate size for this chapter (avg 100KB per compressed image)
+        const chapterEstimatedMB = (images.length * 100) / 1024
+        totalEstimatedMB += chapterEstimatedMB
+        
+        // Update progress for current chapter
+        setDownloadProgress({
+          percent: ((i + 1) / chapterNumbers.length) * 100,
+          loadedMB: processedMB,
+          totalMB: totalEstimatedMB,
+          currentFile: i + 1,
+          totalFiles: chapterNumbers.length
+        })
+        
         // Generate PDF blob instead of downloading
         const pdfBlob = await generateChapterPDFBlob({
           manhwaTitle: manhwaTitle,
@@ -205,6 +260,8 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           chapterTitle: chapter.title,
           images: proxiedImages
         })
+        
+        processedMB += chapterEstimatedMB
         
         // Add to ZIP
         const fileName = `${(manhwaTitle || 'Chapter').replace(/[^a-z0-9]/gi, '_')}_Ch${chapterNumber}.pdf`
@@ -297,7 +354,9 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
   }
 
   return (
-    <div>
+    <div className="relative">
+      {/* Chapter List Container - Can be disabled when modal open */}
+      <div className="chapter-grid-container">
       {/* Search and Filter Bar */}
       <div className="mb-6 space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
@@ -352,22 +411,53 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           </div>
         </div>
 
-        {/* Results Info */}
-        <div className="flex items-center justify-between text-sm">
+        {/* Results Info and Multi-Select Controls */}
+        <div className="flex items-center justify-between text-sm flex-wrap gap-3">
           <p className="text-slate-400">
             Menampilkan <span className="font-semibold text-white">{currentChapters.length}</span> dari <span className="font-semibold text-white">{processedChapters.length}</span> chapter
+            {selectedChapters.size > 0 && (
+              <span className="ml-2 px-2 py-1 bg-primary-600 text-white text-xs rounded-full font-semibold">
+                {selectedChapters.size} terpilih
+              </span>
+            )}
           </p>
-          {searchQuery && (
-            <button
-              onClick={() => handleSearchChange('')}
-              className="text-red-400 hover:text-red-300 flex items-center gap-1"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Clear
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {selectedChapters.size > 0 && (
+              <>
+                {selectedChapters.size < currentChapters.length && (
+                  <button
+                    onClick={selectAll}
+                    className="px-3 py-1.5 text-xs bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center gap-1 font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Pilih Semua
+                  </button>
+                )}
+                <button
+                  onClick={clearSelection}
+                  className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-1 font-medium"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Batal
+                </button>
+              </>
+            )}
+            {searchQuery && (
+              <button
+                onClick={() => handleSearchChange('')}
+                className="text-red-400 hover:text-red-300 flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear Search
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -379,32 +469,42 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
               key={index}
               className={`group relative bg-gradient-to-br from-slate-800/50 to-slate-800/30 hover:from-primary-600/20 hover:to-primary-700/20 border rounded-lg transition-all hover:shadow-lg hover:shadow-primary-900/20 ${
                 selectedChapters.has(chapter.number?.toString() || '')
-                  ? 'border-primary-500 ring-2 ring-primary-500/50'
+                  ? 'border-primary-500 ring-2 ring-primary-500/50 bg-primary-900/20'
                   : 'border-slate-700/50 hover:border-primary-500/50'
               }`}
             >
-              {/* Checkbox for Multi-Select */}
+              {/* Checkbox for Multi-Select - Improved visibility */}
               <div className="absolute top-2 right-2 z-20">
-                <input
-                  type="checkbox"
-                  checked={selectedChapters.has(chapter.number?.toString() || '')}
-                  onChange={(e) => {
-                    e.stopPropagation()
-                    toggleChapterSelection(chapter.number?.toString() || '')
-                  }}
-                  className="w-5 h-5 rounded border-2 border-slate-600 bg-slate-700 checked:bg-primary-600 checked:border-primary-600 cursor-pointer transition-all"
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <label className="relative flex items-center justify-center cursor-pointer group/checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedChapters.has(chapter.number?.toString() || '')}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      toggleChapterSelection(chapter.number?.toString() || '')
+                    }}
+                    className="sr-only peer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="w-6 h-6 rounded-md border-2 border-slate-500 bg-slate-800/80 peer-checked:bg-primary-600 peer-checked:border-primary-600 flex items-center justify-center transition-all shadow-lg group-hover/checkbox:border-primary-400 group-hover/checkbox:scale-110">
+                    {selectedChapters.has(chapter.number?.toString() || '') && (
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </label>
               </div>
 
-              {/* Download Button - Always visible on mobile, hover on desktop */}
+              {/* Download Button - Only show on hover for desktop, hidden on mobile when checkbox visible */}
               {manhwaTitle && (
-                <div className="absolute top-2 left-2 z-10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-2 left-2 z-10 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <DownloadChapterButtonSmall
                     manhwaSlug={manhwaSlug}
                     manhwaTitle={manhwaTitle}
                     chapterNumber={chapter.number?.toString() || ''}
                     chapterTitle={chapter.title}
+                    onModalStateChange={setIsAnyModalOpen}
                   />
                 </div>
               )}
@@ -412,7 +512,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
               {/* Chapter Link - Clickable area */}
               <Link
                 href={`/manhwa/${manhwaSlug}/chapter/${chapter.number}`}
-                className="block p-4 hover:scale-105 transition-transform"
+                className="block p-4 pt-10 hover:scale-105 transition-transform"
               >
 
               {/* Chapter Number */}
@@ -439,13 +539,6 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
                   {getTimeAgo(chapter.date)}
                 </div>
               )}
-
-              {/* Hover Indicator */}
-              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary-600/0 group-hover:bg-primary-600 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
               </Link>
             </div>
           ))}
@@ -509,76 +602,18 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           </button>
         </div>
       )}
+      </div>
+      {/* End of chapter-grid-container */}
 
-      {/* Sticky Toolbar for Multi-Download */}
-      {selectedChapters.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-slate-900 to-slate-800 border-t-2 border-primary-600 shadow-2xl z-50 animate-slideUp">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              {/* Selection Info */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-semibold">
-                      {selectedChapters.size} Chapter Terpilih
-                    </p>
-                    <p className="text-slate-400 text-xs">
-                      {selectedChapters.size === 1 ? 'Akan diunduh sebagai PDF' : 'Akan digabung dalam ZIP'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Select All / Clear */}
-                <div className="hidden sm:flex items-center gap-2">
-                  {selectedChapters.size < currentChapters.length ? (
-                    <button
-                      onClick={selectAll}
-                      className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                    >
-                      Pilih Semua
-                    </button>
-                  ) : null}
-                  <button
-                    onClick={clearSelection}
-                    className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                  >
-                    Batal
-                  </button>
-                </div>
-              </div>
-
-              {/* Download Button */}
-              <button
-                onClick={handleMultiDownload}
-                disabled={isDownloadingMultiple}
-                className="px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-semibold rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
-              >
-                {isDownloadingMultiple ? (
-                  <>
-                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Mengunduh...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    <span>Download Terpilih</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Floating Download Bar - Modern & Clean */}
+      <FloatingDownloadBar
+        selectedCount={selectedChapters.size}
+        onCancel={clearSelection}
+        onDownload={handleMultiDownload}
+        isDownloading={isDownloadingMultiple}
+        estimatedSize={`${(selectedChapters.size * 15).toFixed(1)} MB`}
+        downloadProgress={downloadProgress}
+      />
     </div>
   )
 }
