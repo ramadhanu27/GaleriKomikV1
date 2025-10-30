@@ -22,7 +22,7 @@ export default function PopularManhwa() {
       console.log('🎲 Fetching random manhwa...')
       
       // Fetch more manhwa to have better randomization pool
-      const response = await fetch('/api/komiku/list-from-files?limit=100')
+      const response = await fetch('/api/komiku/list-from-files?limit=20')
       const data = await response.json()
       
       if (data.success) {

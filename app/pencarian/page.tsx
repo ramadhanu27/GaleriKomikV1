@@ -52,20 +52,20 @@ function SearchContent() {
     status: false,
   })
 
-  // Fetch data on mount and when page changes
+  // Fetch data once on mount
   useEffect(() => {
     fetchManhwa()
-  }, [currentPage])
+  }, [])
 
   // Apply filters when data or filters change
   useEffect(() => {
     applyFilters()
   }, [manhwaList, searchQuery, selectedGenres, selectedTypes, selectedStatus, sortBy])
 
-  // Apply pagination when filtered list changes
+  // Apply pagination when filtered list or current page changes
   useEffect(() => {
     applyPagination()
-  }, [filteredList])
+  }, [filteredList, currentPage])
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -78,8 +78,8 @@ function SearchContent() {
     try {
       setLoading(true)
       setError(null)
-      // Use search API with cover images from JSON files, pass current page
-      const response = await fetch(`/api/komiku/search?withCover=true&page=${currentPage}&limit=${itemsPerPage}`)
+      // Use search API with cover images from JSON files
+      const response = await fetch('/api/komiku/search?withCover=true')
       const data = await response.json()
       
       if (data.success) {
@@ -159,6 +159,8 @@ function SearchContent() {
     const startIndex = (currentPage - 1) * itemsPerPage
     const endIndex = startIndex + itemsPerPage
     const paginated = filteredList.slice(startIndex, endIndex)
+    
+    console.log(`Pagination: Page ${currentPage}, Items ${startIndex}-${endIndex}, Total: ${filteredList.length}`)
     
     setPaginatedList(paginated)
     setTotalPages(Math.ceil(filteredList.length / itemsPerPage))
@@ -561,9 +563,10 @@ function SearchContent() {
                                 <div className="w-8 h-5 rounded overflow-hidden shadow-lg">
                                   <Image
                                     src={
-                                      manhwa.type?.toLowerCase().includes('korean') ? '/korea.png' : 
-                                      manhwa.type?.toLowerCase().includes('japanese') ? '/japan.png' : 
-                                      manhwa.type?.toLowerCase().includes('chinese') ? '/china.png' : '/korea.png'
+                                      manhwa.type?.toLowerCase() === 'manhwa' || manhwa.type?.toLowerCase().includes('korea') ? '/korea.png' : 
+                                      manhwa.type?.toLowerCase() === 'manga' || manhwa.type?.toLowerCase().includes('japan') ? '/japan.png' : 
+                                      manhwa.type?.toLowerCase() === 'manhua' || manhwa.type?.toLowerCase().includes('china') || manhwa.type?.toLowerCase().includes('chinese') ? '/china.png' : 
+                                      '/korea.png'
                                     }
                                     alt="Flag"
                                     width={32}
@@ -660,9 +663,10 @@ function SearchContent() {
                                   <div className="w-6 h-6 rounded-full overflow-hidden shadow-lg bg-dark-800 flex-shrink-0">
                                     <Image
                                       src={
-                                        manhwa.type?.toLowerCase().includes('korean') ? '/korea.png' : 
-                                        manhwa.type?.toLowerCase().includes('japanese') ? '/japan.png' : 
-                                        manhwa.type?.toLowerCase().includes('chinese') ? '/china.png' : '/korea.png'
+                                        manhwa.type?.toLowerCase() === 'manhwa' || manhwa.type?.toLowerCase().includes('korea') ? '/korea.png' : 
+                                        manhwa.type?.toLowerCase() === 'manga' || manhwa.type?.toLowerCase().includes('japan') ? '/japan.png' : 
+                                        manhwa.type?.toLowerCase() === 'manhua' || manhwa.type?.toLowerCase().includes('china') || manhwa.type?.toLowerCase().includes('chinese') ? '/china.png' : 
+                                        '/korea.png'
                                       }
                                       alt="Flag"
                                       width={24}

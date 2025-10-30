@@ -29,8 +29,6 @@ export async function GET(request: NextRequest) {
     const genre = searchParams.get('genre') || ''
     const status = searchParams.get('status') || ''
     const withCover = searchParams.get('withCover') === 'true'
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '24')
 
     // Get file list from Chapter/komiku folder using public URL approach
     console.log('Loading manhwa data from Chapter/komiku folder...')
@@ -43,14 +41,106 @@ export async function GET(request: NextRequest) {
         .from(SUPABASE_BUCKET)
         .getPublicUrl('komiku-list.json')
       
-      const response = await fetch(urlData.publicUrl, { 
-        cache: 'no-store',
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      })
+      console.log('Fetching index file from:', urlData.publicUrl)
+      
+      // Retry logic with increased timeout
+      let response
+      let lastError
+      const maxRetries = 3
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`Attempt ${attempt}/${maxRetries} to fetch index file...`)
+          response = await fetch(urlData.publicUrl, { 
+            cache: 'no-store',
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            signal: AbortSignal.timeout(30000) // 30 second timeout
+          })
+          break // Success, exit retry loop
+        } catch (err) {
+          lastError = err
+          console.error(`Attempt ${attempt} failed:`, err)
+          if (attempt < maxRetries) {
+            console.log(`Waiting 2 seconds before retry...`)
+            await new Promise(resolve => setTimeout(resolve, 2000))
+          }
+        }
+      }
+      
+      if (!response) {
+        throw lastError || new Error('Failed to fetch after retries')
+      }
       
       if (response.ok) {
         manhwaList = await response.json()
         console.log(`Loaded ${manhwaList.length} manhwa from index file`)
+        
+        // Load covers FIRST before filtering (with batching to avoid timeout)
+        if (withCover && manhwaList.length > 0) {
+          console.log('Loading cover images before filtering...')
+          
+          const batchSize = 20 // Process 20 items at a time
+          const maxCoversToLoad = Math.min(manhwaList.length, 500) // Load up to 500 items
+          const itemsToLoad = manhwaList.slice(0, maxCoversToLoad)
+          
+          console.log(`Loading covers for ${itemsToLoad.length} items in batches of ${batchSize}`)
+          
+          const loadedCovers: any[] = []
+          
+          // Process in batches
+          for (let i = 0; i < itemsToLoad.length; i += batchSize) {
+            const batch = itemsToLoad.slice(i, i + batchSize)
+            console.log(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(itemsToLoad.length / batchSize)}`)
+            
+            const batchPromises = batch.map(async (manhwa: any) => {
+              try {
+                const { data: urlData } = supabase.storage
+                  .from(SUPABASE_BUCKET)
+                  .getPublicUrl(`Chapter/komiku/${manhwa.slug}.json`)
+                
+                const response = await fetch(urlData.publicUrl, {
+                  cache: 'no-store',
+                  headers: { 'User-Agent': 'Mozilla/5.0' }
+                })
+                
+                if (response.ok) {
+                  const jsonData = await response.json()
+                  return {
+                    ...manhwa,
+                    coverImage: jsonData.image || manhwa.image,
+                    image: jsonData.image || manhwa.image,
+                    fullSynopsis: jsonData.synopsis || manhwa.synopsis,
+                    synopsis: jsonData.synopsis || manhwa.synopsis,
+                    genres: jsonData.genres || manhwa.genres || [],
+                    totalChapters: jsonData.totalChapters || manhwa.totalChapters || 0,
+                    status: jsonData.status || manhwa.status || 'Unknown',
+                    type: jsonData.type || manhwa.type || 'Manhwa',
+                    chapters: jsonData.chapters || []
+                  }
+                }
+              } catch (err) {
+                console.error(`Error loading cover for ${manhwa.slug}:`, err)
+              }
+              return manhwa
+            })
+            
+            const batchResults = await Promise.all(batchPromises)
+            loadedCovers.push(...batchResults)
+            
+            // Small delay between batches to avoid overwhelming the server
+            if (i + batchSize < itemsToLoad.length) {
+              await new Promise(resolve => setTimeout(resolve, 50))
+            }
+          }
+          
+          console.log(`Successfully loaded ${loadedCovers.length} covers`)
+          
+          // Replace loaded items with their cover data
+          manhwaList = [
+            ...loadedCovers,
+            ...manhwaList.slice(maxCoversToLoad)
+          ]
+        }
       } else {
         // If index file doesn't exist, return helpful error
         console.log('Index file not found. Please generate komiku-list.json first.')
@@ -109,57 +199,6 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(`Filtered to ${manhwaList.length} manhwa`)
-
-    // If withCover is requested, load cover images from individual JSON files
-    if (withCover && manhwaList.length > 0) {
-      console.log(`Loading cover images for page ${page}...`)
-      
-      // Calculate which items to load based on current page
-      const startIndex = (page - 1) * limit
-      const endIndex = startIndex + limit
-      const itemsToLoad = manhwaList.slice(startIndex, endIndex)
-      
-      console.log(`Loading covers for items ${startIndex} to ${endIndex} (${itemsToLoad.length} items)`)
-      
-      const coversPromises = itemsToLoad.map(async (manhwa: any) => {
-        try {
-          const { data: urlData } = supabase.storage
-            .from(SUPABASE_BUCKET)
-            .getPublicUrl(`Chapter/komiku/${manhwa.slug}.json`)
-          
-          const response = await fetch(urlData.publicUrl, {
-            cache: 'no-store',
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-          })
-          
-          if (response.ok) {
-            const jsonData = await response.json()
-            return {
-              ...manhwa,
-              coverImage: jsonData.image || manhwa.image,
-              fullSynopsis: jsonData.synopsis || manhwa.synopsis,
-              genres: jsonData.genres || manhwa.genres,
-              totalChapters: jsonData.totalChapters || manhwa.totalChapters,
-              status: jsonData.status || manhwa.status,
-              type: jsonData.type || manhwa.type,
-              chapters: jsonData.chapters || []
-            }
-          }
-        } catch (err) {
-          console.error(`Error loading cover for ${manhwa.slug}:`, err)
-        }
-        return manhwa
-      })
-      
-      const loadedCovers = await Promise.all(coversPromises)
-      
-      // Replace the items for current page with loaded covers
-      manhwaList = [
-        ...manhwaList.slice(0, startIndex),
-        ...loadedCovers,
-        ...manhwaList.slice(endIndex)
-      ]
-    }
 
     return NextResponse.json({
       success: true,
