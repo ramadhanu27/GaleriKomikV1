@@ -138,6 +138,8 @@ export async function GET(request: NextRequest) {
               ...manhwa,
               coverImage: jsonData.image || manhwa.image,
               fullSynopsis: jsonData.synopsis || manhwa.synopsis,
+              genres: jsonData.genres || manhwa.genres,
+              totalChapters: jsonData.totalChapters || manhwa.totalChapters,
               chapters: jsonData.chapters || []
             }
           }

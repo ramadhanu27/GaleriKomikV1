@@ -583,13 +583,26 @@ function SearchContent() {
                               )}
                             </div>
 
-                            {/* Title */}
+                            {/* Title & Info */}
                             <div className="p-2">
-                              <h3 className={`font-medium text-xs line-clamp-2 group-hover:text-primary-400 transition-colors ${
+                              <h3 className={`font-medium text-xs line-clamp-2 mb-2 group-hover:text-primary-400 transition-colors ${
                                 darkMode ? 'text-white' : 'text-gray-900'
                               }`}>
                                 {manhwa.title?.replace(/^Komik\s+/i, '')}
                               </h3>
+                              
+                              {/* Genre badges */}
+                              {manhwa.genres && manhwa.genres.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {manhwa.genres.slice(0, 2).map((genre, idx) => (
+                                    <span key={idx} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                      darkMode ? 'bg-primary-900/50 text-primary-300' : 'bg-primary-100 text-primary-700'
+                                    }`}>
+                                      {genre}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </Link>
