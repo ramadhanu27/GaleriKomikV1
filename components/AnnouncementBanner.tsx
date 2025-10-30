@@ -16,18 +16,11 @@ export default function AnnouncementBanner() {
   const [announcements] = useState<Announcement[]>([
     {
       id: 'update-2025-10-28',
-      title: '🚀 Sekarang bisa download Chapter!',
-      message: 'Fitur baru telah hadir! Kini kamu bisa langsung mengunduh chapter favoritmu untuk dibaca secara offline. Coba sekarang dan nikmati pengalaman membaca tanpa koneksi internet!',
-      type: 'success',
-      date: '28 Oktober 2025'
+      title: 'Update Fitur Pencarian!',
+      message: 'Fitur pencarian baru telah hadir!',
+      type: 'update',
+      date: '30 Oktober 2025'
     }, 
-    {
-      id: 'update-2025-10-29',
-      title: '📦 Download Berhasil!',
-      message: 'Chapter yang kamu pilih sudah diunduh dalam satu file ZIP. Selamat membaca!',
-      type: 'success',
-      date: '29 Oktober 2025'
-    }
   ])
 
   useEffect(() => {

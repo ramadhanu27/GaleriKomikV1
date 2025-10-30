@@ -204,8 +204,8 @@ function SearchContent() {
     }`}>
       {/* Main Container - Flex Layout */}
       <div className="flex min-h-screen">
-        {/* Sticky Sidebar */}
-        <aside className={`w-64 sticky top-0 self-start h-screen border-r overflow-y-auto transition-colors ${
+        {/* Sticky Sidebar - Hidden on mobile */}
+        <aside className={`hidden lg:block w-64 sticky top-0 self-start h-screen border-r overflow-y-auto transition-colors ${
           darkMode ? 'bg-dark-900 border-gray-800' : 'bg-white border-gray-200'
         }`}>
           <div className="p-4">
@@ -558,7 +558,7 @@ function SearchContent() {
 
                               {/* Country Flag */}
                               <div className="absolute top-2 right-2">
-                                <div className="w-8 h-8 rounded-full overflow-hidden shadow-lg bg-dark-800">
+                                <div className="w-8 h-5 rounded overflow-hidden shadow-lg">
                                   <Image
                                     src={
                                       manhwa.type?.toLowerCase().includes('korean') ? '/korea.png' : 
@@ -567,7 +567,7 @@ function SearchContent() {
                                     }
                                     alt="Flag"
                                     width={32}
-                                    height={32}
+                                    height={20}
                                     className="object-cover w-full h-full"
                                   />
                                 </div>

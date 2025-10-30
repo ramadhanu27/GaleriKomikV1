@@ -140,6 +140,8 @@ export async function GET(request: NextRequest) {
               fullSynopsis: jsonData.synopsis || manhwa.synopsis,
               genres: jsonData.genres || manhwa.genres,
               totalChapters: jsonData.totalChapters || manhwa.totalChapters,
+              status: jsonData.status || manhwa.status,
+              type: jsonData.type || manhwa.type,
               chapters: jsonData.chapters || []
             }
           }
