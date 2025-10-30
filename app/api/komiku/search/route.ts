@@ -35,11 +35,10 @@ export async function GET(request: NextRequest) {
     let manhwaList: any[] = []
     
     try {
-      // Use a pre-generated index file if available, otherwise return error
-      // This API expects a komiku-list.json file to exist for fast search
+      // Use metadata.json from metadata folder which contains full data
       const { data: urlData } = supabase.storage
         .from(SUPABASE_BUCKET)
-        .getPublicUrl('komiku-list.json')
+        .getPublicUrl('metadata/metadata.json')
       
       console.log('Fetching index file from:', urlData.publicUrl)
       
@@ -73,93 +72,37 @@ export async function GET(request: NextRequest) {
       
       if (response.ok) {
         manhwaList = await response.json()
-        console.log(`Loaded ${manhwaList.length} manhwa from index file`)
+        console.log(`Loaded ${manhwaList.length} manhwa from metadata.json with full data`)
         
-        // Load covers FIRST before filtering (with batching to avoid timeout)
-        if (withCover && manhwaList.length > 0) {
-          console.log('Loading cover images before filtering...')
-          
-          const batchSize = 20 // Process 20 items at a time
-          const maxCoversToLoad = Math.min(manhwaList.length, 500) // Load up to 500 items
-          const itemsToLoad = manhwaList.slice(0, maxCoversToLoad)
-          
-          console.log(`Loading covers for ${itemsToLoad.length} items in batches of ${batchSize}`)
-          
-          const loadedCovers: any[] = []
-          
-          // Process in batches
-          for (let i = 0; i < itemsToLoad.length; i += batchSize) {
-            const batch = itemsToLoad.slice(i, i + batchSize)
-            console.log(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(itemsToLoad.length / batchSize)}`)
-            
-            const batchPromises = batch.map(async (manhwa: any) => {
-              try {
-                const { data: urlData } = supabase.storage
-                  .from(SUPABASE_BUCKET)
-                  .getPublicUrl(`Chapter/komiku/${manhwa.slug}.json`)
-                
-                const response = await fetch(urlData.publicUrl, {
-                  cache: 'no-store',
-                  headers: { 'User-Agent': 'Mozilla/5.0' }
-                })
-                
-                if (response.ok) {
-                  const jsonData = await response.json()
-                  return {
-                    ...manhwa,
-                    coverImage: jsonData.image || manhwa.image,
-                    image: jsonData.image || manhwa.image,
-                    fullSynopsis: jsonData.synopsis || manhwa.synopsis,
-                    synopsis: jsonData.synopsis || manhwa.synopsis,
-                    genres: jsonData.genres || manhwa.genres || [],
-                    totalChapters: jsonData.totalChapters || manhwa.totalChapters || 0,
-                    status: jsonData.status || manhwa.status || 'Unknown',
-                    type: jsonData.type || manhwa.type || 'Manhwa',
-                    chapters: jsonData.chapters || []
-                  }
-                }
-              } catch (err) {
-                console.error(`Error loading cover for ${manhwa.slug}:`, err)
-              }
-              return manhwa
-            })
-            
-            const batchResults = await Promise.all(batchPromises)
-            loadedCovers.push(...batchResults)
-            
-            // Small delay between batches to avoid overwhelming the server
-            if (i + batchSize < itemsToLoad.length) {
-              await new Promise(resolve => setTimeout(resolve, 50))
-            }
-          }
-          
-          console.log(`Successfully loaded ${loadedCovers.length} covers`)
-          
-          // Replace loaded items with their cover data
-          manhwaList = [
-            ...loadedCovers,
-            ...manhwaList.slice(maxCoversToLoad)
-          ]
-        }
+        // metadata.json already has all data (image, synopsis, genres, status, type, totalChapters)
+        // No need to load from individual JSON files!
+        console.log('Sample data:', manhwaList[0] ? {
+          slug: manhwaList[0].slug,
+          hasImage: !!manhwaList[0].image,
+          hasGenres: !!manhwaList[0].genres,
+          hasStatus: !!manhwaList[0].status,
+          hasType: !!manhwaList[0].type,
+          hasTotalChapters: !!manhwaList[0].totalChapters
+        } : 'No data')
       } else {
-        // If index file doesn't exist, return helpful error
-        console.log('Index file not found. Please generate komiku-list.json first.')
+        // If metadata file doesn't exist, return helpful error
+        console.log('Metadata file not found.')
         return NextResponse.json(
           { 
             success: false, 
-            error: 'Search index not available.',
-            hint: 'File komiku-list.json must exist in bucket komiku-data'
+            error: 'Search metadata not available.',
+            hint: 'File metadata.json must exist in metadata folder'
           },
           { status: 404 }
         )
       }
     } catch (err) {
-      console.error('Error loading index file:', err)
+      console.error('Error loading metadata file:', err)
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Failed to load search index',
-          hint: 'Check if komiku-list.json exists in bucket komiku-data'
+          error: 'Failed to load search metadata',
+          hint: 'Check if metadata/metadata.json exists in bucket komiku-data'
         },
         { status: 500 }
       )

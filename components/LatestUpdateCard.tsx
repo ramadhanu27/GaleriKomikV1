@@ -7,21 +7,11 @@ import { getThumbnail } from '@/lib/imageOptimizer'
 import { getFlagByType, getCountryByType } from '@/lib/getFlagByType'
 import { getProxiedImageUrl } from '@/lib/imageProxy'
 
-interface ManhwaCardProps {
+interface LatestUpdateCardProps {
   manhwa: Manhwa
-  showNewBadge?: boolean
 }
 
-// Helper function to check if manhwa was updated in last 7 days
-const isRecent = (lastModified: string) => {
-  const modifiedDate = new Date(lastModified)
-  const now = new Date()
-  const diffTime = Math.abs(now.getTime() - modifiedDate.getTime())
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  return diffDays <= 7
-}
-
-export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardProps) {
+export default function LatestUpdateCard({ manhwa }: LatestUpdateCardProps) {
   const cleanTitle = (manhwa.manhwaTitle || manhwa.title)
     .replace(/^Komik\s+/i, '')
     .replace(/\s+Bahasa Indonesia$/i, '')
@@ -30,8 +20,8 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
   
   // Use CDN optimized image if it's a Supabase URL, otherwise use proxy for komiku.org
   const displayImage = manhwa.image.includes('thumbnail.komiku.org') || manhwa.image.includes('komiku.org')
-    ? getProxiedImageUrl(manhwa.image) // External URL from komiku.org, use proxy
-    : getThumbnail(manhwa.image) // Supabase storage, use CDN
+    ? getProxiedImageUrl(manhwa.image)
+    : getThumbnail(manhwa.image)
 
   return (
     <Link
@@ -48,18 +38,16 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
           sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
           loading="lazy"
           quality={75}
-          placeholder="blur"
-          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWEREiMxUf/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
         />
         
         {/* Badges Overlay */}
         <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
           {/* Country Flag Badge */}
-          <div className="w-8 h-8 overflow-hidden shadow-lg">
+          <div className="w-8 h-8 rounded-full overflow-hidden shadow-lg bg-white/90 dark:bg-dark-800/90 flex items-center justify-center">
             <img
               src={getFlagByType(manhwa.type)}
               alt={getCountryByType(manhwa.type)}
-              className="w-full h-full object-contain"
+              className="w-6 h-6 object-contain"
             />
           </div>
           
@@ -81,50 +69,34 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
           )}
         </div>
 
-        {/* NEW Badge (if recently modified and showNewBadge is true) */}
-        {showNewBadge && manhwa.lastModified && isRecent(manhwa.lastModified) && (
-          <div className="absolute top-2 left-12">
-            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1">
-              NEW
-            </span>
-          </div>
-        )}
-
-        {/* HOT Badge */}
-        {manhwa.isHot && (
-          <div className="absolute top-12 left-2">
-            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-              🔥 HOT
-            </span>
-          </div>
-        )}
         {/* Title Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-3 pt-8">
-          <h3 className="font-bold text-white text-sm line-clamp-2 leading-tight mb-1 group-hover:text-primary-400 transition-colors">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-2.5 pt-6">
+          <h3 className="font-bold text-white text-xs line-clamp-2 leading-tight group-hover:text-primary-400 transition-colors">
             {cleanTitle}
           </h3>
         </div>
       </div>
 
-      {/* Info Section */}
-      <div className="bg-gray-50 dark:bg-dark-800 p-2.5 space-y-1.5 transition-colors">
+      {/* Info Section - Compact */}
+      <div className="bg-gray-50 dark:bg-dark-800 p-2 space-y-1 transition-colors">
         {/* Total Chapters */}
-        <div className="text-xs flex items-center justify-between gap-2">
-          <span className="text-gray-700 dark:text-gray-300 font-medium">
-            Total Chapters
+        <div className="flex items-center justify-between text-[10px]">
+          <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
+            <span className="text-xs"></span>
+            <span>Total Chapters</span>
           </span>
           <span className="text-primary-500 dark:text-primary-400 font-bold">
             {manhwa.totalChapters || 0}
           </span>
         </div>
         
-        {/* Genres */}
+        {/* Genres - Compact */}
         {manhwa.genres && manhwa.genres.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {manhwa.genres.slice(0, 2).map((genre, idx) => (
               <span 
                 key={idx} 
-                className="text-[10px] px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300"
+                className="text-[9px] px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 font-medium"
               >
                 {genre}
               </span>

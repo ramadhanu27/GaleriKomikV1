@@ -78,8 +78,8 @@ function SearchContent() {
     try {
       setLoading(true)
       setError(null)
-      // Use search API with cover images from JSON files
-      const response = await fetch('/api/komiku/search?withCover=true')
+      // Use search API - metadata.json already has all data
+      const response = await fetch('/api/komiku/search')
       const data = await response.json()
       
       if (data.success) {
@@ -529,7 +529,7 @@ function SearchContent() {
                             {/* Cover Image */}
                             <div className="relative w-full aspect-[2/3] overflow-hidden">
                               {(() => {
-                                const coverImg = (manhwa as any).coverImage || manhwa.image
+                                const coverImg = manhwa.image
                                 return coverImg && (coverImg.startsWith('http://') || coverImg.startsWith('https://')) ? (
                                   <Image
                                     src={coverImg}
@@ -634,7 +634,7 @@ function SearchContent() {
                               {/* Thumbnail */}
                               <div className="relative w-20 h-28 flex-shrink-0 rounded overflow-hidden">
                                 {(() => {
-                                  const coverImg = (manhwa as any).coverImage || manhwa.image
+                                  const coverImg = manhwa.image
                                   return coverImg && (coverImg.startsWith('http://') || coverImg.startsWith('https://')) ? (
                                     <Image
                                       src={coverImg}
@@ -692,7 +692,7 @@ function SearchContent() {
                                   ))}
                                 </div>
                                 {(() => {
-                                  const synopsis = (manhwa as any).fullSynopsis || manhwa.synopsis
+                                  const synopsis = manhwa.synopsis
                                   return synopsis && (
                                     <p className={`text-xs line-clamp-2 mb-2 ${
                                       darkMode ? 'text-gray-400' : 'text-gray-600'

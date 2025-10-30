@@ -12,8 +12,11 @@ import { fetchWithRetry } from '@/lib/fetchWithRetry'
 export default function Home() {
   const [manhwaList, setManhwaList] = useState<Manhwa[]>([])
   const [popularList, setPopularList] = useState<Manhwa[]>([])
+  const [recommendedList, setRecommendedList] = useState<Manhwa[]>([])
+  const [selectedType, setSelectedType] = useState<string>('Manhwa')
   const [loading, setLoading] = useState(true)
   const [loadingPopular, setLoadingPopular] = useState(true)
+  const [loadingRecommended, setLoadingRecommended] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [isRandomized, setIsRandomized] = useState(false)
@@ -22,6 +25,7 @@ export default function Home() {
   useEffect(() => {
     fetchManhwa()
     fetchPopular()
+    fetchRecommended()
   }, [])
 
   const fetchManhwa = async () => {
@@ -94,6 +98,42 @@ export default function Home() {
       setLoadingPopular(false)
     }
   }
+
+  const fetchRecommended = async (type: string = 'Manhwa') => {
+    try {
+      console.log('🎯 Fetching recommended manhwa...', type)
+      setLoadingRecommended(true)
+      
+      // Fetch recommended manhwa from recommend API (without slug = general recommendations)
+      const response = await fetch('/api/komiku/recommend?limit=50')
+      const data = await response.json()
+      
+      if (data.success) {
+        // Filter by type
+        const filtered = data.data.manhwa.filter((m: Manhwa) => 
+          m.type?.toLowerCase() === type.toLowerCase()
+        )
+        
+        // Fisher-Yates shuffle for random selection
+        const shuffled = [...filtered]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        }
+        
+        // Take first 6 random manhwa
+        const randomManhwa = shuffled.slice(0, 6)
+        
+        console.log('✅ Recommended manhwa loaded:', randomManhwa.length, 'Type:', type)
+        setRecommendedList(randomManhwa)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching recommended manhwa:', error)
+      // Don't show error for recommended list, just keep it empty
+    } finally {
+      setLoadingRecommended(false)
+    }
+  }
   
   // Randomize after initial load (client-side only)
   useEffect(() => {
@@ -121,11 +161,7 @@ export default function Home() {
         {/* Announcement Banner */}
         <AnnouncementBanner />
 
-        {/* Main Content with Sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-8 xl:col-span-9">
-            {/* Error Message */}
+        {/* Error Message */}
         {error && (
           <div className="mb-8 p-4 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded-lg">
             <div className="flex items-center gap-2">
@@ -144,66 +180,80 @@ export default function Home() {
           </div>
         )}
 
-        {/* Popular Section - Random Manhwa */}
+        {/* Recommended Section - Full Width */}
         <section className="mb-8">
-          <div className="bg-gradient-to-r from-red-900/20 to-orange-900/20 backdrop-blur-sm rounded-xl p-4 mb-6 border border-red-700/30">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
-                  🔥
-                </div>
-                Manhwa Populer
-                <span className="text-sm font-normal text-slate-400 hidden sm:inline">
-                  Random Selection
-                </span>
-              </h2>
-              <div className="flex items-center gap-2">
+          <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 backdrop-blur-sm rounded-xl p-4 mb-6 border border-purple-700/30">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg">
+                    ⭐
+                  </div>
+                  Rekomendasi
+                </h2>
                 <button
-                  onClick={() => {
-                    setLoadingPopular(true)
-                    setIsRandomized(false)
-                    fetchPopular()
-                  }}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
-                  title="Acak lagi"
+                  onClick={() => fetchRecommended(selectedType)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  <span className="hidden sm:inline">Acak Lagi</span>
+                  <span className="hidden sm:inline">Refresh</span>
                 </button>
-                <a href="/populer" className="px-4 py-2 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2">
-                  Lihat Semua
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </a>
+              </div>
+              
+              {/* Type Filter Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {['Manhwa', 'Manga', 'Manhua'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setSelectedType(type)
+                      fetchRecommended(type)
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      selectedType === type
+                        ? 'bg-purple-600 text-white shadow-lg'
+                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {loadingPopular ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {[...Array(15)].map((_, i) => (
+          {loadingRecommended ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {[...Array(6)].map((_, i) => (
                 <div key={i} className="skeleton h-80 rounded-lg" />
               ))}
             </div>
-          ) : popularList.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {popularList.map((manhwa, index) => (
-                <ManhwaCard key={`${manhwa.slug}-${index}`} manhwa={manhwa} showNewBadge={false} />
+          ) : recommendedList.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {recommendedList.map((manhwa, index) => (
+                <ManhwaCard 
+                  key={`${manhwa.slug}-recommended-${index}`} 
+                  manhwa={manhwa} 
+                  showNewBadge={false} 
+                />
               ))}
             </div>
           ) : (
             <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700/50">
               <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
               </svg>
-              <p className="text-slate-400">Belum ada data tersedia</p>
+              <p className="text-slate-400">Belum ada rekomendasi tersedia</p>
             </div>
           )}
         </section>
 
+        {/* Main Content with Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-8 xl:col-span-9">
         {/* Latest Updates */}
         <section className="mb-8">
           <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-xl p-4 mb-6 border border-slate-700/50">
@@ -215,8 +265,11 @@ export default function Home() {
                   </svg>
                 </div>
                 Update Terbaru
+                <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">
+                  NEW
+                </span>
               </h2>
-              <a href="/terbaru" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary-900/30 flex items-center gap-2">
+              <a href="/pencarian" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary-900/30 flex items-center gap-2">
                 Lihat Semua
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
