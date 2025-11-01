@@ -186,23 +186,9 @@ export default function Home() {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg">
-                    ⭐
-                  </div>
                   Rekomendasi
                 </h2>
-                <button
-                  onClick={() => fetchRecommended(selectedType)}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span className="hidden sm:inline">Refresh</span>
-                </button>
-              </div>
-              
-              {/* Type Filter Buttons */}
+                {/* Type Filter Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
                 {['Manhwa', 'Manga', 'Manhua'].map((type) => (
                   <button
@@ -221,6 +207,9 @@ export default function Home() {
                   </button>
                 ))}
               </div>
+              </div>
+              
+              
             </div>
           </div>
 
@@ -265,9 +254,6 @@ export default function Home() {
                   </svg>
                 </div>
                 Update Terbaru
-                <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">
-                  NEW
-                </span>
               </h2>
               <a href="/pencarian" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary-900/30 flex items-center gap-2">
                 Lihat Semua

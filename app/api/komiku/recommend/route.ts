@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const slug = searchParams.get('slug') || ''
     const limit = parseInt(searchParams.get('limit') || '30', 10)
 
-    // Ambil data metadata gabungan
+    // Ambil file metadata.json dari Supabase
     const { data: urlData } = supabase.storage
       .from(SUPABASE_BUCKET)
       .getPublicUrl('metadata/metadata.json')
@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
 
     let recommendations = []
 
+    // --- Jika ada slug → rekomendasi berdasarkan genre & rating ---
     if (slug) {
-      // Cari komik utama berdasarkan slug
       const current = allManhwa.find((m: any) => m.slug === slug)
       if (!current) {
         return NextResponse.json(
@@ -58,18 +58,14 @@ export async function GET(request: NextRequest) {
       const targetStatus = current.status?.toLowerCase() || ''
       const targetRating = parseFloat(current.rating) || 0
 
-      // Hitung skor kemiripan berdasarkan genre, status, dan rating
       recommendations = allManhwa
         .filter((m: any) => m.slug !== slug)
         .map((m: any) => {
           const genres = m.genres?.map((g: string) => g.toLowerCase()) || []
           const rating = parseFloat(m.rating) || 0
 
-          // Genre overlap
           const genreScore = genres.filter((g: string) => targetGenres.includes(g)).length
-          // Status cocok
           const statusScore = m.status?.toLowerCase() === targetStatus ? 1 : 0
-          // Rating mirip
           const ratingScore = 1 - Math.abs(targetRating - rating) / 10
 
           const totalScore = genreScore * 2 + statusScore + ratingScore
@@ -77,12 +73,17 @@ export async function GET(request: NextRequest) {
         })
         .sort((a: any, b: any) => b.similarity - a.similarity)
         .slice(0, limit)
-    } else {
-      // Kalau tidak ada slug, tampilkan semua manhwa (tanpa filter rating)
-      recommendations = allManhwa.slice(0, limit)
     }
 
-    // Format output
+    // --- Jika tidak ada slug → tampilkan berdasarkan rating tertinggi ---
+    else {
+      recommendations = allManhwa
+        .filter((m: any) => !isNaN(parseFloat(m.rating))) // hanya yang punya rating valid
+        .sort((a: any, b: any) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0))
+        .slice(0, limit)
+    }
+
+    // --- Format output ---
     const result = recommendations.map((m: any) => ({
       slug: m.slug,
       title: m.manhwaTitle || m.title,
@@ -90,20 +91,20 @@ export async function GET(request: NextRequest) {
       genres: m.genres,
       status: m.status,
       type: m.type,
-      rating: m.rating,
+      rating: parseFloat(m.rating) || 0,
       totalChapters: m.totalChapters || m.chapters?.length || 0,
-      similarity: m.similarity || undefined
+      similarity: m.similarity ?? undefined,
     }))
 
     return NextResponse.json({
       success: true,
       data: {
         manhwa: result,
-        total: result.length
-      }
+        total: result.length,
+      },
     })
   } catch (error) {
-    console.error('Error in /api/komiku/recommend:', error)
+    console.error('❌ Error in /api/komiku/recommend:', error)
     return NextResponse.json(
       { success: false, error: (error as Error).message },
       { status: 500 }

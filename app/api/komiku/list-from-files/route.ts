@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_BUCKET = 'komiku-data'
-
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -22,8 +21,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '30', 10)
 
-    console.log('Loading combined metadata.json from Supabase...')
+    console.log('📥 Fetching metadata.json from Supabase...')
 
+    // Ambil file metadata.json dari folder metadata
     const { data: urlData } = supabase.storage
       .from(SUPABASE_BUCKET)
       .getPublicUrl('metadata/metadata.json')
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const response = await fetch(urlData.publicUrl, { cache: 'no-store' })
 
     if (!response.ok) {
-      console.error('Failed to fetch metadata.json')
+      console.error('❌ metadata.json not found or failed to fetch')
       return NextResponse.json(
         { success: false, error: 'metadata.json not found in Supabase' },
         { status: 404 }
@@ -39,30 +39,47 @@ export async function GET(request: NextRequest) {
     }
 
     const allManhwa = await response.json()
-    console.log(`Loaded ${allManhwa.length} manhwa from metadata.json`)
+    if (!Array.isArray(allManhwa) || allManhwa.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No manhwa data found in metadata.json' },
+        { status: 404 }
+      )
+    }
 
-    // Sort by scrapedAt (newest first)
-    const sorted = allManhwa.sort((a: any, b: any) => {
-      const dateA = new Date(a.scrapedAt || a.lastModified || 0).getTime()
-      const dateB = new Date(b.scrapedAt || b.lastModified || 0).getTime()
-      return dateB - dateA
-    })
+    console.log(`✅ Loaded ${allManhwa.length} manhwa items`)
 
-    // Apply limit
+    // Urutkan berdasarkan scrapedAt terbaru (desc)
+    const sorted = allManhwa
+      .filter((m: any) => m.scrapedAt || m.lastModified)
+      .sort((a: any, b: any) => {
+        const dateA = new Date(a.scrapedAt || a.lastModified || 0).getTime()
+        const dateB = new Date(b.scrapedAt || b.lastModified || 0).getTime()
+        return dateB - dateA
+      })
+
+    // Batasi hasil
     const limited = sorted.slice(0, limit)
 
-    // Optional: select preview fields only
+    // Format hasil dengan field penting saja
     const result = limited.map((m: any) => ({
       slug: m.slug,
       title: m.manhwaTitle || m.title,
       image: m.image,
-      genres: m.genres,
-      status: m.status,
-      type: m.type,
-      rating: m.rating,
+      genres: m.genres || [],
+      status: m.status || 'Unknown',
+      type: m.type || 'Manhwa',
+      rating: m.rating ? parseFloat(m.rating) : null,
       totalChapters: m.totalChapters || m.chapters?.length || 0,
-      scrapedAt: m.scrapedAt,
-      chapters: m.chapters?.slice(0, 3) || [],
+      scrapedAt: m.scrapedAt || null,
+      latestChapters: (m.chapters || [])
+        .slice(-3)
+        .reverse()
+        .map((ch: any) => ({
+          number: ch.number,
+          title: ch.title,
+          url: ch.url,
+          date: ch.date,
+        })),
     }))
 
     return NextResponse.json({
@@ -73,7 +90,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error in /api/komiku/list:', error)
+    console.error('❌ Error in /api/komiku/latest:', error)
     return NextResponse.json(
       { success: false, error: (error as Error).message },
       { status: 500 }

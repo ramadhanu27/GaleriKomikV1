@@ -17,11 +17,21 @@ export default function LatestUpdateCard({ manhwa }: LatestUpdateCardProps) {
     .replace(/\s+Bahasa Indonesia$/i, '')
     .trim()
   const cleanSlug = manhwa.slug.replace(/-bahasa-indonesia$/, '')
+
+  const displayImage =
+    manhwa.image.includes('thumbnail.komiku.org') || manhwa.image.includes('komiku.org')
+      ? getProxiedImageUrl(manhwa.image)
+      : getThumbnail(manhwa.image)
+
+  // 🔥 Check if NEW (updated within last 7 days) - same as ManhwaCard
+  const isRecent = (dateString: string) => {
+    const lastModified = new Date(dateString).getTime()
+    const now = Date.now()
+    const diffDays = (now - lastModified) / (1000 * 60 * 60 * 24)
+    return diffDays <= 7 // Show NEW badge if updated within 7 days
+  }
   
-  // Use CDN optimized image if it's a Supabase URL, otherwise use proxy for komiku.org
-  const displayImage = manhwa.image.includes('thumbnail.komiku.org') || manhwa.image.includes('komiku.org')
-    ? getProxiedImageUrl(manhwa.image)
-    : getThumbnail(manhwa.image)
+  const isNew = manhwa.lastModified && isRecent(manhwa.lastModified)
 
   return (
     <Link
@@ -39,8 +49,17 @@ export default function LatestUpdateCard({ manhwa }: LatestUpdateCardProps) {
           loading="lazy"
           quality={75}
         />
-        
-        {/* Badges Overlay */}
+
+        {/* 🔥 NEW Badge */}
+        {isNew && (
+          <div className="absolute top-2 right-2 z-20">
+            <span className="bg-gradient-to-r from-red-500 to-pink-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-md animate-pulse">
+              NEW
+            </span>
+          </div>
+        )}
+
+        {/* Badges Overlay (Flag + Status) */}
         <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
           {/* Country Flag Badge */}
           <div className="w-8 h-8 rounded-full overflow-hidden shadow-lg bg-white/90 dark:bg-dark-800/90 flex items-center justify-center">
@@ -50,21 +69,26 @@ export default function LatestUpdateCard({ manhwa }: LatestUpdateCardProps) {
               className="w-6 h-6 object-contain"
             />
           </div>
-          
+
           {/* Status Badge */}
           {manhwa.status && (
-            <span className={`text-[9px] font-bold px-2 py-0.5 rounded shadow-lg ${
-              manhwa.status.toLowerCase().includes('ongoing') 
-                ? 'bg-green-500 text-white' 
-                : manhwa.status.toLowerCase().includes('complete') || 
-                  manhwa.status.toLowerCase().includes('completed') ||
+            <span
+              className={`text-[9px] font-bold px-2 py-0.5 rounded shadow-lg ${
+                manhwa.status.toLowerCase().includes('ongoing')
+                  ? 'bg-green-500 text-white'
+                  : manhwa.status.toLowerCase().includes('complete') ||
+                    manhwa.status.toLowerCase().includes('completed') ||
+                    manhwa.status.toLowerCase() === 'end'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-500 text-white'
+              }`}
+            >
+              {manhwa.status.toLowerCase().includes('ongoing')
+                ? 'ONGOING'
+                : manhwa.status.toLowerCase().includes('complete') ||
                   manhwa.status.toLowerCase() === 'end'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-500 text-white'
-            }`}>
-              {manhwa.status.toLowerCase().includes('ongoing') ? 'ONGOING' : 
-               manhwa.status.toLowerCase().includes('complete') || manhwa.status.toLowerCase() === 'end' ? 'COMPLETE' : 
-               manhwa.status.toUpperCase()}
+                ? 'COMPLETE'
+                : manhwa.status.toUpperCase()}
             </span>
           )}
         </div>
@@ -77,11 +101,10 @@ export default function LatestUpdateCard({ manhwa }: LatestUpdateCardProps) {
         </div>
       </div>
 
-      {/* Info Section - Compact */}
+      {/* Info Section */}
       <div className="bg-gray-50 dark:bg-dark-800 p-2 space-y-1 transition-colors">
         {/* Rating & Total Chapters */}
         <div className="flex items-center justify-between text-[10px]">
-          {/* Rating */}
           {manhwa.rating && parseFloat(String(manhwa.rating)) > 0 ? (
             <div className="flex items-center gap-1">
               <span className="text-yellow-500 text-xs">⭐</span>
@@ -92,8 +115,7 @@ export default function LatestUpdateCard({ manhwa }: LatestUpdateCardProps) {
           ) : (
             <span className="text-gray-500 dark:text-gray-500 text-[9px]">N/A</span>
           )}
-          
-          {/* Total Chapters */}
+
           <div className="flex items-center gap-1">
             <span className="text-gray-600 dark:text-gray-400 text-[9px]">Ch:</span>
             <span className="text-primary-500 dark:text-primary-400 font-bold">
@@ -101,13 +123,13 @@ export default function LatestUpdateCard({ manhwa }: LatestUpdateCardProps) {
             </span>
           </div>
         </div>
-        
-        {/* Genres - Compact */}
+
+        {/* Genres */}
         {manhwa.genres && manhwa.genres.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {manhwa.genres.slice(0, 2).map((genre, idx) => (
-              <span 
-                key={idx} 
+              <span
+                key={idx}
                 className="text-[9px] px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 font-medium"
               >
                 {genre}

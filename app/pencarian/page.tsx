@@ -594,6 +594,16 @@ function SearchContent() {
                                 {manhwa.title?.replace(/^Komik\s+/i, '')}
                               </h3>
                               
+                              {/* Rating */}
+                              {manhwa.rating && parseFloat(String(manhwa.rating)) > 0 && (
+                                <div className="flex items-center gap-1 mb-2">
+                                  <span className="text-yellow-500 text-xs">⭐</span>
+                                  <span className={`text-xs font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {parseFloat(String(manhwa.rating)).toFixed(1)}
+                                  </span>
+                                </div>
+                              )}
+                              
                               {/* Genre badges */}
                               {manhwa.genres && manhwa.genres.length > 0 && (
                                 <div className="flex flex-wrap gap-1">
@@ -676,6 +686,12 @@ function SearchContent() {
                                   </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 mb-2">
+                                  {/* Rating */}
+                                  {manhwa.rating && parseFloat(String(manhwa.rating)) > 0 && (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-bold flex items-center gap-1">
+                                      ⭐ {parseFloat(String(manhwa.rating)).toFixed(1)}
+                                    </span>
+                                  )}
                                   {manhwa.status && (
                                     <span className={`text-xs px-2 py-0.5 rounded ${
                                       manhwa.status.toLowerCase().includes('ongoing')

@@ -83,8 +83,8 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
 
         {/* NEW Badge (if recently modified and showNewBadge is true) */}
         {showNewBadge && manhwa.lastModified && isRecent(manhwa.lastModified) && (
-          <div className="absolute top-2 left-12">
-            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1">
+          <div className="absolute top-2 right-2">
+            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow-lg animate-pulse">
               NEW
             </span>
           </div>
@@ -92,8 +92,8 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
 
         {/* HOT Badge */}
         {manhwa.isHot && (
-          <div className="absolute top-12 left-2">
-            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+          <div className="absolute top-12 right-2">
+            <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded shadow-lg">
               🔥 HOT
             </span>
           </div>
