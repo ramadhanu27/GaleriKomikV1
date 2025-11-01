@@ -108,14 +108,27 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
 
       {/* Info Section */}
       <div className="bg-gray-50 dark:bg-dark-800 p-2.5 space-y-1.5 transition-colors">
-        {/* Total Chapters */}
-        <div className="text-xs flex items-center justify-between gap-2">
-          <span className="text-gray-700 dark:text-gray-300 font-medium">
-            Total Chapters
-          </span>
-          <span className="text-primary-500 dark:text-primary-400 font-bold">
-            {manhwa.totalChapters || 0}
-          </span>
+        {/* Rating & Total Chapters */}
+        <div className="flex items-center justify-between gap-2 text-xs">
+          {/* Rating */}
+          {manhwa.rating && parseFloat(String(manhwa.rating)) > 0 ? (
+            <div className="flex items-center gap-1">
+              <span className="text-yellow-500">⭐</span>
+              <span className="text-gray-700 dark:text-gray-300 font-bold">
+                {parseFloat(String(manhwa.rating)).toFixed(1)}
+              </span>
+            </div>
+          ) : (
+            <span className="text-gray-500 dark:text-gray-500 text-[10px]">No rating</span>
+          )}
+          
+          {/* Total Chapters */}
+          <div className="flex items-center gap-1">
+            <span className="text-gray-600 dark:text-gray-400 text-[10px]">Ch:</span>
+            <span className="text-primary-500 dark:text-primary-400 font-bold">
+              {manhwa.totalChapters || 0}
+            </span>
+          </div>
         </div>
         
         {/* Genres */}

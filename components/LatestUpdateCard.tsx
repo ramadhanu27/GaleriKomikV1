@@ -79,15 +79,27 @@ export default function LatestUpdateCard({ manhwa }: LatestUpdateCardProps) {
 
       {/* Info Section - Compact */}
       <div className="bg-gray-50 dark:bg-dark-800 p-2 space-y-1 transition-colors">
-        {/* Total Chapters */}
+        {/* Rating & Total Chapters */}
         <div className="flex items-center justify-between text-[10px]">
-          <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-            <span className="text-xs"></span>
-            <span>Total Chapters</span>
-          </span>
-          <span className="text-primary-500 dark:text-primary-400 font-bold">
-            {manhwa.totalChapters || 0}
-          </span>
+          {/* Rating */}
+          {manhwa.rating && parseFloat(String(manhwa.rating)) > 0 ? (
+            <div className="flex items-center gap-1">
+              <span className="text-yellow-500 text-xs">⭐</span>
+              <span className="text-gray-700 dark:text-gray-300 font-bold">
+                {parseFloat(String(manhwa.rating)).toFixed(1)}
+              </span>
+            </div>
+          ) : (
+            <span className="text-gray-500 dark:text-gray-500 text-[9px]">N/A</span>
+          )}
+          
+          {/* Total Chapters */}
+          <div className="flex items-center gap-1">
+            <span className="text-gray-600 dark:text-gray-400 text-[9px]">Ch:</span>
+            <span className="text-primary-500 dark:text-primary-400 font-bold">
+              {manhwa.totalChapters || 0}
+            </span>
+          </div>
         </div>
         
         {/* Genres - Compact */}
