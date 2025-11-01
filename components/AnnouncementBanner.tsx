@@ -15,12 +15,27 @@ export default function AnnouncementBanner() {
   const [isVisible, setIsVisible] = useState(false)
   const [announcements] = useState<Announcement[]>([
     {
-      id: 'update-2025-10-28',
-      title: 'Update Fitur Pencarian!',
-      message: 'Fitur pencarian baru telah hadir!',
-      type: 'update',
-      date: '30 Oktober 2025'
-    }, 
+  id: 'update-2025-10-31',
+  title: '🆕 Penanda Komik Baru Telah Hadir!',
+  message: 'Sekarang setiap komik yang baru di-update dalam 3 hari terakhir akan otomatis diberi badge “NEW” di cover-nya. Kamu bisa langsung tahu mana yang baru rilis tanpa perlu scroll panjang! 🚀',
+  type: 'success',
+  date: '31 Oktober 2025'
+    },
+    {
+  id: 'update-2025-10-31-popularrating',
+  title: '⭐ Komik Populer Berdasarkan Rating',
+  message: 'Sidebar “Popular” kini menampilkan daftar komik dengan rating tertinggi. Semakin tinggi rating, semakin atas posisinya! 🔥',
+  type: 'info',
+  date: '31 Oktober 2025'
+},
+{
+  id: 'update-2025-10-31-newbadge',
+  title: '🆕 Penanda Komik Baru!',
+  message: 'Sekarang setiap komik yang baru diperbarui dalam 3 hari terakhir akan otomatis diberi badge “NEW” di cover. Kamu bisa langsung tahu mana yang baru rilis tanpa harus cari satu-satu! 🚀',
+  type: 'success',
+  date: '31 Oktober 2025'
+},
+
   ])
 
   useEffect(() => {
