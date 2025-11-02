@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
       type: m.type,
       rating: parseFloat(m.rating) || 0,
       totalChapters: m.totalChapters || m.chapters?.length || 0,
+      lastModified: m.scrapedAt || m.lastModified || null, // Add lastModified for NEW badge
       similarity: m.similarity ?? undefined,
     }))
 

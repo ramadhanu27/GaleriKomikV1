@@ -83,8 +83,8 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
 
         {/* NEW Badge (if recently modified and showNewBadge is true) */}
         {showNewBadge && manhwa.lastModified && isRecent(manhwa.lastModified) && (
-          <div className="absolute top-2 right-2">
-            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow-lg animate-pulse">
+          <div className="absolute top-2 right-2 z-20">
+            <span className="bg-gradient-to-r from-red-500 to-pink-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-md animate-pulse">
               NEW
             </span>
           </div>

@@ -23,17 +23,22 @@ export default function PopularSidebar() {
       const data = await response.json()
 
       if (data.success && Array.isArray(data.data.manhwa)) {
-        // Urutkan berdasarkan rating tertinggi
+        // Urutkan berdasarkan kombinasi rating dan total chapter
         const sorted = [...data.data.manhwa]
           .filter((m) => m.rating && m.rating > 0)
-          .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+          .map((m) => ({
+            ...m,
+            // Calculate popularity score: rating (70%) + totalChapters (30%)
+            popularityScore: (m.rating || 0) * 0.7 + Math.log10((m.totalChapters || 1) + 1) * 2
+          }))
+          .sort((a, b) => b.popularityScore - a.popularityScore)
           .slice(0, 10)
 
-        console.log('🔥 Top rated list:', sorted)
+        console.log('🔥 Popular list (by rating + chapters):', sorted)
         setPopularList(sorted)
       }
     } catch (error) {
-      console.error('Error fetching popular (by rating):', error)
+      console.error('Error fetching popular (by rating + chapters):', error)
     } finally {
       setLoading(false)
     }
@@ -64,8 +69,9 @@ export default function PopularSidebar() {
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
-          Popular by Rating
+          Most Popular
         </h2>
+        <p className="text-primary-100 text-sm mt-1">Based on rating & chapters</p>
       </div>
 
       {/* Tabs */}
@@ -148,32 +154,36 @@ export default function PopularSidebar() {
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-2 mt-2">
-                    {manhwa.rating ? (
-                      <>
-                        <div className="flex text-xs">{renderStars(manhwa.rating)}</div>
-                        <span className="text-xs text-slate-400 font-medium">
-                          {(manhwa.rating / 2).toFixed(1)}
-                        </span>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-1 text-xs text-slate-400">
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                          />
-                        </svg>
-                        {manhwa.totalChapters} Ch
-                      </div>
-                    )}
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <div className="flex items-center gap-2">
+                      {manhwa.rating ? (
+                        <>
+                          <div className="flex text-xs">{renderStars(manhwa.rating)}</div>
+                          <span className="text-xs text-slate-400 font-medium">
+                            {(manhwa.rating / 2).toFixed(1)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-slate-400">No rating</span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-1 text-xs text-slate-400">
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                        />
+                      </svg>
+                      {manhwa.totalChapters || 0} Ch
+                    </div>
                   </div>
                 </div>
               </Link>

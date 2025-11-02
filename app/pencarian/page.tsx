@@ -150,6 +150,12 @@ function SearchContent() {
       results.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
     } else if (sortBy === 'popular') {
       results.sort((a, b) => (b.totalChapters || 0) - (a.totalChapters || 0))
+    } else if (sortBy === 'latest') {
+      results.sort((a, b) => {
+        const dateA = new Date(a.lastModified || a.scrapedAt || 0).getTime()
+        const dateB = new Date(b.lastModified || b.scrapedAt || 0).getTime()
+        return dateB - dateA // Sort by latest first (descending)
+      })
     }
 
     setFilteredList(results)

@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
       rating: m.rating ? parseFloat(m.rating) : null,
       totalChapters: m.totalChapters || m.chapters?.length || 0,
       scrapedAt: m.scrapedAt || null,
+      lastModified: m.scrapedAt || m.lastModified || null, // Add lastModified for NEW badge
       latestChapters: (m.chapters || [])
         .slice(-3)
         .reverse()

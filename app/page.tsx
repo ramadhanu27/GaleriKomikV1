@@ -107,8 +107,8 @@ export default function Home() {
       console.log("🎯 Fetching recommended manhwa...", type);
       setLoadingRecommended(true);
 
-      // Fetch recommended manhwa from recommend API (without slug = general recommendations)
-      const response = await fetch("/api/komiku/recommend?limit=50");
+      // Fetch more recommended manhwa to ensure we have enough after filtering
+      const response = await fetch("/api/komiku/recommend?limit=100");
       const data = await response.json();
 
       if (data.success) {
@@ -122,10 +122,23 @@ export default function Home() {
           [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
 
-        // Take first 6 random manhwa
-        const randomManhwa = shuffled.slice(0, 6);
+        let randomManhwa = shuffled.slice(0, 6);
 
-        console.log("✅ Recommended manhwa loaded:", randomManhwa.length, "Type:", type);
+        // If we don't have enough of the selected type, add from other types
+        if (randomManhwa.length < 6) {
+          const otherTypes = data.data.manhwa.filter((m: Manhwa) => m.type?.toLowerCase() !== type.toLowerCase());
+          const otherShuffled = [...otherTypes];
+          for (let i = otherShuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [otherShuffled[i], otherShuffled[j]] = [otherShuffled[j], otherShuffled[i]];
+          }
+          
+          // Add enough from other types to reach 6 total
+          const needed = 6 - randomManhwa.length;
+          randomManhwa = [...randomManhwa, ...otherShuffled.slice(0, needed)];
+        }
+
+        console.log("✅ Recommended manhwa loaded:", randomManhwa.length, "Type:", type, "Available:", filtered.length);
         setRecommendedList(randomManhwa);
       }
     } catch (error) {
@@ -187,10 +200,12 @@ export default function Home() {
         <section className="mb-8">
           <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 backdrop-blur-sm rounded-xl p-4 mb-6 border border-purple-700/30">
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3">Rekomendasi</h2>
-                {/* Type Filter Buttons */}
-                <div className="flex items-center gap-2 flex-wrap">
+              {/* Header - Mobile Responsive */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3">Rekomendasi</h2>
+                
+                {/* Type Filter Buttons - Responsive */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   {["Manhwa", "Manga", "Manhua"].map((type) => (
                     <button
                       key={type}
@@ -198,7 +213,11 @@ export default function Home() {
                         setSelectedType(type);
                         fetchRecommended(type);
                       }}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all ${selectedType === type ? "bg-purple-600 text-white shadow-lg" : "bg-slate-700/50 text-slate-300 hover:bg-slate-700"}`}>
+                      className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-sm sm:text-base ${
+                        selectedType === type 
+                          ? "bg-purple-600 text-white shadow-lg" 
+                          : "bg-slate-700/50 text-slate-300 hover:bg-slate-700"
+                      }`}>
                       {type}
                     </button>
                   ))}
@@ -208,20 +227,20 @@ export default function Home() {
           </div>
 
           {loadingRecommended ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="skeleton h-80 rounded-lg" />
+                <div key={i} className="skeleton h-72 sm:h-80 rounded-lg" />
               ))}
             </div>
           ) : recommendedList.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
               {recommendedList.map((manhwa, index) => (
                 <ManhwaCard key={`${manhwa.slug}-recommended-${index}`} manhwa={manhwa} showNewBadge={false} />
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700/50">
-              <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="text-center py-8 sm:py-12 bg-slate-800/30 rounded-xl border border-slate-700/50">
+              <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-slate-600 mb-3 sm:mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -229,7 +248,7 @@ export default function Home() {
                   d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
                 />
               </svg>
-              <p className="text-slate-400">Belum ada rekomendasi tersedia</p>
+              <p className="text-sm sm:text-base text-slate-400">Belum ada rekomendasi tersedia</p>
             </div>
           )}
         </section>

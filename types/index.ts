@@ -22,6 +22,7 @@ export interface Manhwa {
   released?: string
   totalChapters?: number
   lastModified?: string
+  scrapedAt?: string
 }
 
 export interface Chapter {
