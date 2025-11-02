@@ -18,9 +18,9 @@ interface ChapterData {
 /**
  * Compress image to reduce file size while maintaining quality
  * Optimized for manga/comic images to achieve < 5MB total file size
- * Using optimal settings: 1080px width @ 60% quality (JPEG)
+ * Using optimal settings: 800px width @ 50% quality (JPEG) for faster processing
  */
-async function compressImage(base64: string, maxWidth: number = 1080, quality: number = 0.6): Promise<string> {
+async function compressImage(base64: string, maxWidth: number = 800, quality: number = 0.5): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
       const img = new Image()
@@ -49,7 +49,7 @@ async function compressImage(base64: string, maxWidth: number = 1080, quality: n
         
         // Enable image smoothing for better quality
         ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
+        ctx.imageSmoothingQuality = 'medium' // Reduced from 'high' for speed
         
         // Fill white background (for transparency handling)
         ctx.fillStyle = '#FFFFFF'
@@ -85,8 +85,61 @@ async function compressImage(base64: string, maxWidth: number = 1080, quality: n
 }
 
 /**
- * Convert image URL to base64 using API route (bypasses CORS)
+ * Process multiple images in parallel for faster downloads
+ * Uses Promise.allSettled to handle failures gracefully
  */
+async function processImagesInParallel(images: string[], maxConcurrency: number = 6, onProgress?: (current: number, total: number, status: string) => void): Promise<string[]> {
+  const results: string[] = new Array(images.length).fill('')
+  let completed = 0
+  
+  // Process images in batches
+  for (let i = 0; i < images.length; i += maxConcurrency) {
+    const batch = images.slice(i, i + maxConcurrency)
+    const batchPromises = batch.map(async (imageUrl, batchIndex) => {
+      const globalIndex = i + batchIndex
+      
+      try {
+        const response = await fetch(`/api/image-to-base64?url=${encodeURIComponent(imageUrl)}`)
+        
+        if (!response.ok) {
+          throw new Error(`API error! status: ${response.status}`)
+        }
+        
+        const result = await response.json()
+        
+        if (result.success && result.data.base64) {
+          const base64 = result.data.base64
+          
+          // Validate and compress base64
+          if (base64 && base64.length > 100) {
+            // Compress image for faster processing
+            const compressedBase64 = await compressImage(base64)
+            results[globalIndex] = compressedBase64
+          } else {
+            console.warn(`Image ${globalIndex + 1} returned invalid base64`)
+            results[globalIndex] = ''
+          }
+        } else {
+          console.warn(`Image ${globalIndex + 1} failed to convert`)
+          results[globalIndex] = ''
+        }
+      } catch (error) {
+        console.error(`Error loading image ${globalIndex + 1}:`, error, imageUrl)
+        results[globalIndex] = ''
+      } finally {
+        completed++
+        if (onProgress) {
+          onProgress(completed, images.length, `Memuat gambar ${completed}/${images.length}...`)
+        }
+      }
+    })
+    
+    // Wait for current batch to complete
+    await Promise.allSettled(batchPromises)
+  }
+  
+  return results
+}
 async function getBase64ImageFromUrl(url: string, compress: boolean = true): Promise<string> {
   try {
     // Use API route to convert image to base64
@@ -137,29 +190,15 @@ export async function generateChapterPDF(
       onProgress(0, images.length, 'Memulai...')
     }
 
-    // Convert all images to base64
-    const base64Images: string[] = []
+    // Process images in parallel for faster download
+    console.log(`🚀 Processing ${images.length} images in parallel...`)
+    const startTime = Date.now()
     
-    for (let i = 0; i < images.length; i++) {
-      if (onProgress) {
-        onProgress(i + 1, images.length, `Memuat gambar ${i + 1}/${images.length}...`)
-      }
-      
-      try {
-        const base64 = await getBase64ImageFromUrl(images[i])
-        if (base64 && base64.length > 100) { // Valid base64 should be longer
-          base64Images.push(base64)
-        } else {
-          console.warn(`Image ${i + 1} returned invalid base64`)
-          base64Images.push('')
-        }
-      } catch (error) {
-        console.error(`Error loading image ${i + 1}:`, error, images[i])
-        // Add placeholder for failed images
-        base64Images.push('')
-      }
-    }
+    const base64Images = await processImagesInParallel(images, 6, onProgress)
     
+    const processingTime = Date.now() - startTime
+    console.log(`✅ Parallel processing completed in ${processingTime}ms`)
+
     // Check if we got any valid images
     const validImages = base64Images.filter(img => img !== '')
     if (validImages.length === 0) {
@@ -214,7 +253,12 @@ export async function generateChapterPDF(
       onProgress(images.length, images.length, 'Mengunduh PDF...')
     }
     
+    const pdfStartTime = Date.now()
+    
     pdfMake.createPdf(docDefinition).download(fileName)
+    
+    const pdfGenerationTime = Date.now() - pdfStartTime
+    console.log(`📄 PDF generated and downloaded in ${pdfGenerationTime}ms`)
     
     if (onProgress) {
       onProgress(images.length, images.length, 'Selesai!')
@@ -227,7 +271,107 @@ export async function generateChapterPDF(
 }
 
 /**
- * Open PDF in new tab instead of downloading
+ * Generate PDF and return as Blob (for ZIP packaging)
+ */
+export async function generateChapterPDFBlob(
+  data: ChapterData,
+  onProgress?: (current: number, total: number, status: string) => void
+): Promise<Blob> {
+  const { manhwaTitle, chapterNumber, chapterTitle, images } = data
+  
+  try {
+    // Report initial status
+    if (onProgress) {
+      onProgress(0, images.length, 'Memulai...')
+    }
+
+    // Process images in parallel for faster download
+    console.log(`🚀 Processing ${images.length} images in parallel...`)
+    const startTime = Date.now()
+    
+    const base64Images = await processImagesInParallel(images, 6, onProgress)
+    
+    const processingTime = Date.now() - startTime
+    console.log(`✅ Parallel processing completed in ${processingTime}ms`)
+    
+    // Check if we got any valid images
+    const validImages = base64Images.filter(img => img !== '')
+    if (validImages.length === 0) {
+      throw new Error('Tidak ada gambar yang berhasil dimuat. Pastikan koneksi internet Anda stabil.')
+    }
+    
+    console.log(`Successfully loaded ${validImages.length} out of ${images.length} images`)
+
+    if (onProgress) {
+      onProgress(images.length, images.length, 'Membuat PDF...')
+    }
+
+    // Create PDF document definition with optimized settings
+    const docDefinition: any = {
+      pageSize: {
+        width: 595.28,
+        height: 'auto'
+      },
+      pageMargins: [0, 0, 0, 0], // No margins for full-width images
+      compress: true, // Enable PDF compression
+      info: {
+        title: '', // No title in PDF metadata
+      },
+      
+      content: [
+        // All images in one continuous page
+        ...base64Images.map((base64, index) => {
+          if (!base64) {
+            return {
+              text: `[Gambar ${index + 1} gagal dimuat]`,
+              alignment: 'center',
+              margin: [0, 250, 0, 250],
+              color: '#999',
+              fontSize: 14
+            }
+          }
+          
+          return {
+            image: base64,
+            fit: [595.28, 10000], // Fit to width, unlimited height (no cropping)
+            alignment: 'center',
+            margin: [0, 0, 0, 0] // No spacing between images
+          }
+        })
+      ]
+    }
+
+    // Generate PDF and return as Blob
+    if (onProgress) {
+      onProgress(images.length, images.length, 'Membuat PDF...')
+    }
+    
+    return new Promise((resolve, reject) => {
+      const pdfStartTime = Date.now()
+      
+      pdfMake.createPdf(docDefinition).getBlob((blob) => {
+        if (blob) {
+          const pdfGenerationTime = Date.now() - pdfStartTime
+          console.log(`📄 PDF generated in ${pdfGenerationTime}ms`)
+          
+          if (onProgress) {
+            onProgress(images.length, images.length, 'Selesai!')
+          }
+          resolve(blob)
+        } else {
+          reject(new Error('Failed to generate PDF blob'))
+        }
+      })
+    })
+    
+  } catch (error) {
+    console.error('Error generating PDF blob:', error)
+    throw error
+  }
+}
+
+/**
+ * Generate PDF and download directly
  */
 export async function openChapterPDF(
   data: ChapterData,

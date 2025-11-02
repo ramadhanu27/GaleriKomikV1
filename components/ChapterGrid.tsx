@@ -26,6 +26,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     currentFile: number
     totalFiles: number
   } | undefined>(undefined)
+  const [abortController, setAbortController] = useState<AbortController | null>(null)
   const itemsPerPage = 50
   
   // Sort and filter chapters
@@ -137,6 +138,9 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
   const handleMultiDownload = async () => {
     if (selectedChapters.size === 0 || !manhwaTitle) return
     
+    // Create new abort controller for this download
+    const controller = new AbortController()
+    setAbortController(controller)
     setIsDownloadingMultiple(true)
     
     try {
@@ -145,29 +149,53 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
       if (selectedArray.length === 1) {
         // Single chapter - direct PDF download
         const chapterNumber = selectedArray[0]
-        await downloadSingleChapter(chapterNumber)
+        await downloadSingleChapter(chapterNumber, controller.signal)
       } else {
         // Multiple chapters - create ZIP
-        await downloadMultipleChapters(selectedArray)
+        await downloadMultipleChapters(selectedArray, controller.signal)
       }
       
       clearSelection()
     } catch (error) {
-      console.error('Multi-download error:', error)
-      alert('Gagal mengunduh chapter. Silakan coba lagi.')
+      if (error instanceof Error && error.message === 'Download dihentikan oleh pengguna') {
+        console.log('Download stopped by user')
+      } else {
+        console.error('Multi-download error:', error)
+        alert('Gagal mengunduh chapter. Silakan coba lagi.')
+      }
     } finally {
       setIsDownloadingMultiple(false)
       setDownloadProgress(undefined)
+      setAbortController(null)
     }
   }
 
-  const downloadSingleChapter = async (chapterNumber: string) => {
+  const handleStop = () => {
+    if (abortController) {
+      abortController.abort()
+      setIsDownloadingMultiple(false)
+      setDownloadProgress(undefined)
+      setAbortController(null)
+    }
+  }
+
+  const downloadSingleChapter = async (chapterNumber: string, signal?: AbortSignal) => {
     // Import dynamically to avoid SSR issues
     const { generateChapterPDF } = await import('@/lib/pdfMakeGenerator')
     const { getProxiedImageUrl } = await import('@/lib/imageProxy')
     
-    const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapterNumber}`)
+    // Check if aborted before making request
+    if (signal?.aborted) {
+      throw new Error('Download dihentikan oleh pengguna')
+    }
+    
+    const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapterNumber}`, { signal })
     const data = await response.json()
+    
+    // Check if aborted after request
+    if (signal?.aborted) {
+      throw new Error('Download dihentikan oleh pengguna')
+    }
     
     if (!data.success || !data.data.chapter) {
       throw new Error('Failed to fetch chapter data')
@@ -191,7 +219,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     await generateChapterPDF({
       manhwaTitle: manhwaTitle || '',
       chapterNumber,
-      chapterTitle: chapter.title,
+      chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
       images: proxiedImages
     }, (current, total, status) => {
       // Update progress
@@ -208,69 +236,128 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     })
   }
 
-  const downloadMultipleChapters = async (chapterNumbers: string[]) => {
+  const downloadMultipleChapters = async (chapterNumbers: string[], signal?: AbortSignal) => {
     // Import JSZip dynamically
     const JSZip = (await import('jszip')).default
     const zip = new JSZip()
     
     const { getProxiedImageUrl } = await import('@/lib/imageProxy')
-    const { generateChapterPDF } = await import('@/lib/pdfMakeGenerator')
+    const { generateChapterPDFBlob } = await import('@/lib/pdfMakeGenerator')
     
     // Calculate total estimated size
     let totalEstimatedMB = 0
     let processedMB = 0
     
-    // Fetch all chapters
-    for (let i = 0; i < chapterNumbers.length; i++) {
-      const chapterNumber = chapterNumbers[i]
-      
-      try {
-        const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapterNumber}`)
-        const data = await response.json()
-        
-        if (!data.success || !data.data.chapter) continue
-        
-        const chapter = data.data.chapter
-        const images = chapter.images || []
-        
-        if (images.length === 0) continue
-        
-        const proxiedImages = images.map((img: any) => {
-          const originalUrl = typeof img === 'string' ? img : img.url
-          return getProxiedImageUrl(originalUrl)
-        })
-        
-        // Estimate size for this chapter (avg 100KB per compressed image)
-        const chapterEstimatedMB = (images.length * 100) / 1024
-        totalEstimatedMB += chapterEstimatedMB
-        
-        // Update progress for current chapter
-        setDownloadProgress({
-          percent: ((i + 1) / chapterNumbers.length) * 100,
-          loadedMB: processedMB,
-          totalMB: totalEstimatedMB,
-          currentFile: i + 1,
-          totalFiles: chapterNumbers.length
-        })
-        
-        // Generate PDF blob instead of downloading
-        const pdfBlob = await generateChapterPDFBlob({
-          manhwaTitle: manhwaTitle,
-          chapterNumber,
-          chapterTitle: chapter.title,
-          images: proxiedImages
-        })
-        
-        processedMB += chapterEstimatedMB
-        
-        // Add to ZIP
-        const fileName = `${(manhwaTitle || 'Chapter').replace(/[^a-z0-9]/gi, '_')}_Ch${chapterNumber}.pdf`
-        zip.file(fileName, pdfBlob)
-        
-      } catch (error) {
-        console.error(`Error downloading chapter ${chapterNumber}:`, error)
+    // Process chapters in parallel batches for faster download
+    const maxConcurrency = 3 // Process 3 chapters at once
+    const results: { chapterNumber: string, pdfBlob: Blob, estimatedMB: number }[] = []
+    
+    console.log(`🚀 Processing ${chapterNumbers.length} chapters in parallel batches...`)
+    const startTime = Date.now()
+    
+    for (let i = 0; i < chapterNumbers.length; i += maxConcurrency) {
+      // Check if aborted before processing batch
+      if (signal?.aborted) {
+        throw new Error('Download dihentikan oleh pengguna')
       }
+      
+      const batch = chapterNumbers.slice(i, i + maxConcurrency)
+      const batchPromises = batch.map(async (chapterNumber, batchIndex) => {
+        const globalIndex = i + batchIndex
+        
+        try {
+          // Check if aborted before making request
+          if (signal?.aborted) {
+            throw new Error('Download dihentikan oleh pengguna')
+          }
+          
+          const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapterNumber}`, { signal })
+          const data = await response.json()
+          
+          // Check if aborted after request
+          if (signal?.aborted) {
+            throw new Error('Download dihentikan oleh pengguna')
+          }
+          
+          if (!data.success || !data.data.chapter) {
+            throw new Error('Failed to fetch chapter data')
+          }
+          
+          const chapter = data.data.chapter
+          const images = chapter.images || []
+          
+          if (images.length === 0) {
+            throw new Error('Chapter tidak memiliki gambar')
+          }
+          
+          const proxiedImages = images.map((img: any) => {
+            const originalUrl = typeof img === 'string' ? img : img.url
+            return getProxiedImageUrl(originalUrl)
+          })
+          
+          // Estimate size for this chapter (reduced estimate for faster processing)
+          const chapterEstimatedMB = (images.length * 75) / 1024 // Reduced from 100KB
+          
+          // Check if aborted before PDF generation
+          if (signal?.aborted) {
+            throw new Error('Download dihentikan oleh pengguna')
+          }
+          
+          // Generate PDF blob
+          const pdfBlob = await generateChapterPDFBlob({
+            manhwaTitle: manhwaTitle,
+            chapterNumber,
+            chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
+            images: proxiedImages
+          })
+          
+          return { chapterNumber, pdfBlob, estimatedMB: chapterEstimatedMB }
+          
+        } catch (error) {
+          // Check if error is due to abort
+          if (signal?.aborted) {
+            throw new Error('Download dihentikan oleh pengguna')
+          }
+          console.error(`Error downloading chapter ${chapterNumber}:`, error)
+          return null // Return null for failed chapters
+        }
+      })
+      
+      // Wait for current batch to complete
+      const batchResults = await Promise.allSettled(batchPromises)
+      
+      // Process successful results
+      batchResults.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value) {
+          results.push(result.value)
+          totalEstimatedMB += result.value.estimatedMB
+        }
+      })
+      
+      // Update progress
+      const completedCount = Math.min(i + maxConcurrency, chapterNumbers.length)
+      setDownloadProgress({
+        percent: (completedCount / chapterNumbers.length) * 100,
+        loadedMB: processedMB,
+        totalMB: totalEstimatedMB,
+        currentFile: completedCount,
+        totalFiles: chapterNumbers.length
+      })
     }
+    
+    // Check if aborted before final ZIP generation
+    if (signal?.aborted) {
+      throw new Error('Download dihentikan oleh pengguna')
+    }
+    
+    const processingTime = Date.now() - startTime
+    console.log(`✅ Parallel chapter processing completed in ${processingTime}ms`)
+    
+    // Add all successful PDFs to ZIP
+    results.forEach(({ chapterNumber, pdfBlob }) => {
+      const fileName = `${(manhwaTitle || 'Chapter').replace(/[^a-z0-9]/gi, '_')}_Ch${chapterNumber}.pdf`
+      zip.file(fileName, pdfBlob)
+    })
     
     // Generate ZIP and download
     const zipBlob = await zip.generateAsync({ type: 'blob' })
@@ -609,6 +696,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
       <FloatingDownloadBar
         selectedCount={selectedChapters.size}
         onCancel={clearSelection}
+        onStop={isDownloadingMultiple ? handleStop : undefined}
         onDownload={handleMultiDownload}
         isDownloading={isDownloadingMultiple}
         estimatedSize={`${(selectedChapters.size * 15).toFixed(1)} MB`}
