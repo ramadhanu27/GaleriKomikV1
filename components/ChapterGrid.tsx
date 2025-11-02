@@ -305,7 +305,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           
           // Generate PDF blob
           const pdfBlob = await generateChapterPDFBlob({
-            manhwaTitle: manhwaTitle,
+            manhwaTitle: manhwaTitle || 'Unknown Manhwa',
             chapterNumber,
             chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
             images: proxiedImages
@@ -548,87 +548,117 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
         </div>
       </div>
 
-      {/* Chapter Grid - 5 Columns */}
+      {/* Chapter Grid - 5 Columns with Scroll */}
       {currentChapters.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
-          {currentChapters.map((chapter, index) => (
-            <div
-              key={index}
-              className={`group relative bg-gradient-to-br from-slate-800/50 to-slate-800/30 hover:from-primary-600/20 hover:to-primary-700/20 border rounded-lg transition-all hover:shadow-lg hover:shadow-primary-900/20 ${
-                selectedChapters.has(chapter.number?.toString() || '')
-                  ? 'border-primary-500 ring-2 ring-primary-500/50 bg-primary-900/20'
-                  : 'border-slate-700/50 hover:border-primary-500/50'
-              }`}
-            >
-              {/* Checkbox for Multi-Select - Improved visibility */}
-              <div className="absolute top-2 right-2 z-20">
-                <label className="relative flex items-center justify-center cursor-pointer group/checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedChapters.has(chapter.number?.toString() || '')}
-                    onChange={(e) => {
-                      e.stopPropagation()
-                      toggleChapterSelection(chapter.number?.toString() || '')
-                    }}
-                    className="sr-only peer"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <div className="w-6 h-6 rounded-md border-2 border-slate-500 bg-slate-800/80 peer-checked:bg-primary-600 peer-checked:border-primary-600 flex items-center justify-center transition-all shadow-lg group-hover/checkbox:border-primary-400 group-hover/checkbox:scale-110">
-                    {selectedChapters.has(chapter.number?.toString() || '') && (
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                </label>
-              </div>
-
-              {/* Download Button - Only show on hover for desktop, hidden on mobile when checkbox visible */}
-              {manhwaTitle && (
-                <div className="absolute top-2 left-2 z-10 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                  <DownloadChapterButtonSmall
-                    manhwaSlug={manhwaSlug}
-                    manhwaTitle={manhwaTitle}
-                    chapterNumber={chapter.number?.toString() || ''}
-                    chapterTitle={chapter.title}
-                    onModalStateChange={setIsAnyModalOpen}
-                  />
-                </div>
-              )}
-              
-              {/* Chapter Link - Clickable area */}
-              <Link
-                href={`/manhwa/${manhwaSlug}/chapter/${chapter.number}`}
-                className="block p-4 pt-10 hover:scale-105 transition-transform"
-              >
-
-              {/* Chapter Number */}
-              <div className="text-center mb-2">
-                <div className="text-xs text-slate-400 font-medium mb-1">Chapter</div>
-                <div className="text-2xl font-bold text-white group-hover:text-primary-400 transition-colors">
-                  {chapter.number}
-                </div>
-              </div>
-
-              {/* Chapter Title (if exists and different) */}
-              {chapter.title && chapter.title !== `Chapter ${chapter.number}` && (
-                <div className="text-xs text-slate-400 text-center mb-2 line-clamp-2 min-h-[2rem]">
-                  {chapter.title}
-                </div>
-              )}
-
-              {/* Date */}
-              {chapter.date && (
-                <div className="text-xs text-slate-500 text-center flex items-center justify-center gap-1">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {getTimeAgo(chapter.date)}
-                </div>
-              )}
-              </Link>
+        <div className="mb-6">
+          {/* Scroll Indicators */}
+          {currentChapters.length > 20 && (
+            <div className="mb-2 text-xs text-slate-400 flex items-center justify-between">
+              <span>📜 Scroll untuk melihat chapter lainnya</span>
+              <span className="text-primary-400">
+                {currentChapters.length} chapter tersedia
+              </span>
             </div>
-          ))}
+          )}
+          
+          {/* Scrollable Chapter Container */}
+          <div className="relative">
+            {/* Top Scroll Fade Indicator */}
+            <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none opacity-60"></div>
+            
+            {/* Scroll Container */}
+            <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 hover:scrollbar-thumb-slate-500 pr-2 pt-2 pb-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {currentChapters.map((chapter, index) => (
+                  <div
+                    key={index}
+                    className={`group relative bg-gradient-to-br from-slate-800/50 to-slate-800/30 hover:from-primary-600/20 hover:to-primary-700/20 border rounded-lg transition-all hover:shadow-lg hover:shadow-primary-900/20 ${
+                      selectedChapters.has(chapter.number?.toString() || '')
+                        ? 'border-primary-500 ring-2 ring-primary-500/50 bg-primary-900/20'
+                        : 'border-slate-700/50 hover:border-primary-500/50'
+                    }`}
+                  >
+                    {/* Checkbox for Multi-Select - Improved visibility */}
+                    <div className="absolute top-2 right-2 z-20">
+                      <label className="relative flex items-center justify-center cursor-pointer group/checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedChapters.has(chapter.number?.toString() || '')}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            toggleChapterSelection(chapter.number?.toString() || '')
+                          }}
+                          className="sr-only peer"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="w-6 h-6 rounded-md border-2 border-slate-500 bg-slate-800/80 peer-checked:bg-primary-600 peer-checked:border-primary-600 flex items-center justify-center transition-all shadow-lg group-hover/checkbox:border-primary-400 group-hover/checkbox:scale-110">
+                          {selectedChapters.has(chapter.number?.toString() || '') && (
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Download Button - Only show on hover for desktop, hidden on mobile when checkbox visible */}
+                    {manhwaTitle && (
+                      <div className="absolute top-2 left-2 z-10 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <DownloadChapterButtonSmall
+                          manhwaSlug={manhwaSlug}
+                          manhwaTitle={manhwaTitle}
+                          chapterNumber={chapter.number?.toString() || ''}
+                          chapterTitle={chapter.title}
+                          onModalStateChange={setIsAnyModalOpen}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Chapter Link - Clickable area */}
+                    <Link
+                      href={`/manhwa/${manhwaSlug}/chapter/${chapter.number}`}
+                      className="block p-4 pt-10 hover:scale-105 transition-transform"
+                    >
+
+                    {/* Chapter Number */}
+                    <div className="text-center mb-2">
+                      <div className="text-xs text-slate-400 font-medium mb-1">Chapter</div>
+                      <div className="text-2xl font-bold text-white group-hover:text-primary-400 transition-colors">
+                        {chapter.number}
+                      </div>
+                    </div>
+
+                    {/* Chapter Title (if exists and different) */}
+                    {chapter.title && chapter.title !== `Chapter ${chapter.number}` && (
+                      <div className="text-xs text-slate-400 text-center mb-2 line-clamp-2 min-h-[2rem]">
+                        {chapter.title}
+                      </div>
+                    )}
+
+                    {/* Date */}
+                    {chapter.date && (
+                      <div className="text-xs text-slate-500 text-center flex items-center justify-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {getTimeAgo(chapter.date)}
+                      </div>
+                    )}
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Bottom Scroll Fade Indicator */}
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none opacity-60"></div>
+          </div>
+          
+          {/* Chapter Count Info */}
+          <div className="mt-4 text-center text-sm text-slate-400">
+            Menampilkan {startIndex + 1}-{Math.min(endIndex, processedChapters.length)} dari {processedChapters.length} chapter
+            {processedChapters.length > itemsPerPage && ` (Halaman ${currentPage} dari ${totalPages})`}
+          </div>
         </div>
       ) : (
         <div className="text-center py-12">
