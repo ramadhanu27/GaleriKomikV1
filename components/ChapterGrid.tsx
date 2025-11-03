@@ -405,7 +405,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           pageMargins: [0, 0, 0, 0],
           content: [
             {
-              text: `${data.manhwaTitle} - Chapter ${data.chapterNumber}`,
+              text: `${data.manhwaTitle || 'Unknown Manhwa'} - Chapter ${data.chapterNumber}`,
               fontSize: 20,
               bold: true,
               margin: [40, 100, 40, 100],
