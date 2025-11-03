@@ -35,6 +35,8 @@ export const metadata: Metadata = {
   authors: [{ name: 'Galeri Komik' }],
   creator: 'Galeri Komik',
   publisher: 'Galeri Komik',
+  category: 'Entertainment',
+  classification: 'Comics & Manga',
   robots: {
     index: true,
     follow: true,
@@ -84,6 +86,17 @@ export const metadata: Metadata = {
   },
   verification: {
     google: 'your-google-verification-code',
+  },
+  other: {
+    'msapplication-TileColor': '#1a1a2e',
+    'msapplication-config': '/browserconfig.xml',
+    'apple-mobile-web-app-title': 'Galeri Komik',
+    'application-name': 'Galeri Komik',
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-status-bar-style': 'black-translucent',
+    'format-detection': 'telephone=no',
+    'theme-color': '#1a1a2e',
   },
 }
 
