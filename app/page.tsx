@@ -13,7 +13,7 @@ export default function Home() {
   const [manhwaList, setManhwaList] = useState<Manhwa[]>([]);
   const [popularList, setPopularList] = useState<Manhwa[]>([]);
   const [recommendedList, setRecommendedList] = useState<Manhwa[]>([]);
-  const [selectedType, setSelectedType] = useState<string>("Manhwa");
+  const [selectedType, setSelectedType] = useState<string>("Komik");
   const [loading, setLoading] = useState(true);
   const [loadingPopular, setLoadingPopular] = useState(true);
   const [loadingRecommended, setLoadingRecommended] = useState(true);
@@ -102,7 +102,7 @@ export default function Home() {
     }
   };
 
-  const fetchRecommended = async (type: string = "Manhwa") => {
+  const fetchRecommended = async (type: string = "Komik") => {
     try {
       console.log("🎯 Fetching recommended manhwa...", type);
       setLoadingRecommended(true);
@@ -206,7 +206,7 @@ export default function Home() {
                 
                 {/* Type Filter Buttons - Responsive */}
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  {["Manhwa", "Manga", "Manhua"].map((type) => (
+                  {["Komik", "Manhwa", "Manga", "Manhua"].map((type) => (
                     <button
                       key={type}
                       onClick={() => {

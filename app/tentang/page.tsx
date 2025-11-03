@@ -11,7 +11,7 @@ export default function TentangPage() {
             Tentang Kami
           </h1>
           <p className="text-slate-300">
-            Kenali lebih dekat platform Arkomik
+            Kenali lebih dekat platform Galeri Komik
           </p>
         </div>
 
@@ -28,7 +28,7 @@ export default function TentangPage() {
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-green-400 mb-2">Bebas Iklan</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  Kami menyediakan platform baca manhwa <span className="font-semibold text-white">tanpa iklan judol dan iklan mengganggu lainnya</span>. 
+                  Kami menyediakan platform baca komik <span className="font-semibold text-white">tanpa iklan judol dan iklan mengganggu lainnya</span>. 
                   Nikmati pengalaman membaca yang nyaman dan fokus pada cerita.
                 </p>
               </div>

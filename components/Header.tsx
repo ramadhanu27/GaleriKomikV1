@@ -111,17 +111,17 @@ export default function Header() {
           <Link href="/" className="flex items-center space-x-3 group">
             <div className="relative w-10 h-10 rounded-lg overflow-hidden ring-2 ring-primary-500/50 group-hover:ring-primary-500 transition-all">
               <Image
-                src="/logo.png"
-                alt="Arkomik"
+                src="/logo-new.jpg"
+                alt="Galeri Komik"
                 fill
                 className="object-contain transition-transform group-hover:scale-110"
               />
             </div>
             <div className="hidden sm:block">
               <span className="text-xl font-bold bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">
-                Arkomik
+                Galeri Komik
               </span>
-              <p className="text-[10px] text-slate-400 -mt-1">Baca Manhwa Gratis</p>
+              <p className="text-[10px] text-slate-400 -mt-1">Baca Komik Gratis</p>
             </div>
           </Link>
 

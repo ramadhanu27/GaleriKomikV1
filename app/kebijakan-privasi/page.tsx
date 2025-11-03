@@ -21,7 +21,7 @@ export default function KebijakanPrivasiPage() {
           <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-700/50">
             <h2 className="text-2xl font-bold text-white mb-4">Pendahuluan</h2>
             <p className="text-slate-300 leading-relaxed">
-              Arkomik menghargai privasi Anda dan berkomitmen untuk melindungi data pribadi Anda. 
+              Galeri Komik menghargai privasi Anda dan berkomitmen untuk melindungi data pribadi Anda. 
               Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, dan melindungi 
               informasi Anda saat menggunakan layanan kami.
             </p>

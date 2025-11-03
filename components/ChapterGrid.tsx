@@ -305,7 +305,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           
           // Generate PDF blob
           const pdfBlob = await generateChapterPDFBlob({
-            manhwaTitle: manhwaTitle || 'Unknown Manhwa',
+            manhwaTitle: manhwaTitle || 'Galeri Komik',
             chapterNumber,
             chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
             images: proxiedImages
@@ -405,7 +405,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           pageMargins: [0, 0, 0, 0],
           content: [
             {
-              text: `${data.manhwaTitle || 'Unknown Manhwa'} - Chapter ${data.chapterNumber}`,
+              text: `${data.manhwaTitle || 'Galeri Komik'} - Chapter ${data.chapterNumber}`,
               fontSize: 20,
               bold: true,
               margin: [40, 100, 40, 100],

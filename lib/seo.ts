@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 
 const SITE_URL = 'https://www.galerikomik.cyou'
-const SITE_NAME = 'Arkomik'
-const SITE_DESCRIPTION = 'Platform terbaik untuk membaca manhwa bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.'
+const SITE_NAME = 'Galeri Komik'
+const SITE_DESCRIPTION = 'Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.'
 
 export function generateManhwaMetadata(manhwa: {
   title: string
@@ -16,17 +16,19 @@ export function generateManhwaMetadata(manhwa: {
   const cleanTitle = manhwa.title.replace(/^Komik\s+/i, '').replace(/\s+Bahasa Indonesia$/i, '').trim()
   const description = manhwa.synopsis 
     ? manhwa.synopsis.slice(0, 160) + '...'
-    : `Baca ${cleanTitle} bahasa Indonesia di ${SITE_NAME}. ${manhwa.genres?.slice(0, 3).join(', ') || 'Manhwa'} terbaik dengan update terbaru.`
+    : `Baca ${cleanTitle} bahasa Indonesia di ${SITE_NAME}. ${manhwa.genres?.slice(0, 3).join(', ') || 'Komik'} terbaik dengan update terbaru.`
   
   const imageUrl = manhwa.image.startsWith('http') 
     ? manhwa.image 
     : `${SITE_URL}${manhwa.image}`
 
   return {
-    title: `${cleanTitle} - Baca Manhwa Bahasa Indonesia | ${SITE_NAME}`,
+    title: `${cleanTitle} - Baca Komik Bahasa Indonesia | ${SITE_NAME}`,
     description,
     keywords: [
       cleanTitle,
+      'komik',
+      'manga',
       'manhwa',
       'baca online',
       'bahasa indonesia',
@@ -74,7 +76,7 @@ export function generateChapterMetadata(
   return {
     title: `${title} | ${SITE_NAME}`,
     description,
-    keywords: `${cleanTitle}, chapter ${chapterNumber}, manhwa, baca online, bahasa indonesia`,
+    keywords: `${cleanTitle}, chapter ${chapterNumber}, komik, manga, manhwa, baca online, bahasa indonesia`,
     openGraph: {
       title,
       description,
@@ -187,7 +189,7 @@ export function generateArticleStructuredData(article: {
       name: SITE_NAME,
       logo: {
         '@type': 'ImageObject',
-        url: `${SITE_URL}/logo.png`
+        url: `${SITE_URL}/logo-new.jpg`
       }
     },
     mainEntityOfPage: {
@@ -218,7 +220,7 @@ export function generateOrganizationStructuredData() {
     '@type': 'Organization',
     name: SITE_NAME,
     url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
+    logo: `${SITE_URL}/logo-new.jpg`,
     description: SITE_DESCRIPTION,
     sameAs: [
       // Add social media links

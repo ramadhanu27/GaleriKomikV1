@@ -27,14 +27,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.galerikomik.cyou'),
   title: {
-    default: 'Arkomik - Baca Manhwa Bahasa Indonesia',
-    template: '%s | Arkomik'
+    default: 'Galeri Komik - Baca Komik Bahasa Indonesia',
+    template: '%s | Galeri Komik'
   },
-  description: 'Platform terbaik untuk membaca manhwa bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari. Baca gratis dengan kualitas HD.',
-  keywords: ['manhwa', 'komik', 'webtoon', 'bahasa indonesia', 'baca online', 'manhwa indo', 'komik online', 'baca gratis'],
-  authors: [{ name: 'Arkomik' }],
-  creator: 'Arkomik',
-  publisher: 'Arkomik',
+  description: 'Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari. Baca gratis dengan kualitas HD.',
+  keywords: ['komik', 'manga', 'manhwa', 'webtoon', 'bahasa indonesia', 'baca online', 'komik indo', 'manga online', 'baca gratis'],
+  authors: [{ name: 'Galeri Komik' }],
+  creator: 'Galeri Komik',
+  publisher: 'Galeri Komik',
   robots: {
     index: true,
     follow: true,

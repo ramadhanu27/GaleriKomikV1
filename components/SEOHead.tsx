@@ -61,10 +61,10 @@ export default function SEOHead({ structuredData, breadcrumbs }: SEOHeadProps) {
       const orgData = {
         '@context': 'https://schema.org',
         '@type': 'Organization',
-        name: 'Arkomik',
+        name: 'Galeri Komik',
         url: 'https://www.galerikomik.cyou',
-        logo: 'https://www.galerikomik.cyou/logo.png',
-        description: 'Platform terbaik untuk membaca manhwa bahasa Indonesia',
+        logo: 'https://www.galerikomik.cyou/logo-new.jpg',
+        description: 'Platform terbaik untuk membaca komik bahasa Indonesia',
         sameAs: [
           // Add social media links here
         ]

@@ -14,15 +14,15 @@ export default function Footer() {
           <div className="md:col-span-2 space-y-4">
             <div className="flex items-center space-x-3">
               <div className="relative w-12 h-12 rounded-lg overflow-hidden ring-2 ring-primary-500/50">
-                <Image src="/logo.png" alt="Arkomik" fill className="object-contain" />
+                <Image src="/logo-new.jpg" alt="Galeri Komik" fill className="object-contain" />
               </div>
               <div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">Arkomik</span>
-                <p className="text-xs text-slate-400">Baca Manhwa Gratis</p>
+                <span className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">Galeri Komik</span>
+                <p className="text-xs text-slate-400">Baca Komik Gratis</p>
               </div>
             </div>
             <p className="text-slate-400 text-sm leading-relaxed max-w-md">
-              Platform terbaik untuk membaca manhwa bahasa Indonesia. 
+              Platform terbaik untuk membaca komik bahasa Indonesia. 
               Nikmati koleksi lengkap dengan update terbaru setiap hari. 
               Gratis dan mudah diakses kapan saja.
             </p>
@@ -131,10 +131,10 @@ export default function Footer() {
         <div className="border-t border-slate-800 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-slate-400 text-sm">
-              © {currentYear} <span className="text-primary-400 font-semibold">Arkomik</span>. Semua Hak Dilindungi.
+              © {currentYear} <span className="text-primary-400 font-semibold">Galeri Komik</span>. Semua Hak Dilindungi.
             </p>
             <p className="text-slate-500 text-xs text-center md:text-right">
-              Disclaimer: Semua konten manhwa adalah milik penerbit dan penulis aslinya.
+              Disclaimer: Semua konten komik adalah milik penerbit dan penulis aslinya.
             </p>
           </div>
         </div>
