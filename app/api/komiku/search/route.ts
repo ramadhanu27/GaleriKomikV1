@@ -71,8 +71,36 @@ export async function GET(request: NextRequest) {
       }
       
       if (response.ok) {
-        manhwaList = await response.json()
-        console.log(`Loaded ${manhwaList.length} manhwa from metadata.json with full data`)
+        // Use streaming for large file (10MB+)
+        if (response.body) {
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          let chunks = ''
+
+          console.log('📥 Streaming metadata.json...')
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            
+            chunks += decoder.decode(value, { stream: true })
+          }
+
+          // Parse complete JSON
+          try {
+            manhwaList = JSON.parse(chunks)
+            console.log(`✅ Streamed and parsed ${manhwaList.length} manhwa from metadata.json`)
+          } catch (parseError) {
+            console.error('❌ Failed to parse metadata.json:', parseError)
+            return NextResponse.json(
+              { success: false, error: 'Invalid JSON format in metadata.json' },
+              { status: 500 }
+            )
+          }
+        } else {
+          // Fallback to regular JSON parsing
+          manhwaList = await response.json()
+          console.log(`Loaded ${manhwaList.length} manhwa from metadata.json with full data`)
+        }
         
         // metadata.json already has all data (image, synopsis, genres, status, type, totalChapters)
         // No need to load from individual JSON files!

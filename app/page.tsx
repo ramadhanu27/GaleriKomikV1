@@ -26,11 +26,11 @@ export default function Home() {
 
   const fetchManhwa = async () => {
     try {
-      console.log("📥 Fetching manhwa from batch-latest-chapters API...");
+      console.log("📥 Fetching top 30 manhwa with latest chapters...");
 
-      // Step 1: Get metadata for rating and initial sorting
+      // Step 1: Get metadata for rating (only 50 items for faster load)
       const listData = await fetchWithCache(
-        "/api/komiku/list-from-files?limit=100",
+        "/api/komiku/list-from-files?limit=50",
         5 * 60 * 1000 // 5 minutes
       );
 
@@ -39,8 +39,8 @@ export default function Home() {
         return;
       }
 
-      // Get slugs from metadata
-      const metadataList = listData.data.manhwa;
+      // Get top 30 slugs from metadata (already has latestChapters)
+      const metadataList = listData.data.manhwa.slice(0, 30);
       const slugs = metadataList.map((m: any) => m.slug);
       
       console.log(`✅ Got ${slugs.length} slugs, fetching full data from batch API...`);
@@ -112,23 +112,29 @@ export default function Home() {
         });
 
         // Sort by latest chapter date (newest first)
-        const sortedManhwaList = mergedManhwaList.sort((a: any, b: any) => {
+        // Filter out manhwa without chapter dates first
+        const manhwaWithDates = mergedManhwaList.filter((m: any) => m.latestChapterTimestamp > 0);
+        const manhwaWithoutDates = mergedManhwaList.filter((m: any) => m.latestChapterTimestamp === 0);
+        
+        // Sort manhwa with dates
+        const sortedWithDates = manhwaWithDates.sort((a: any, b: any) => {
           return b.latestChapterTimestamp - a.latestChapterTimestamp;
         });
 
-        // Take top 30
+        // Combine: manhwa with dates first, then without dates
+        const sortedManhwaList = [...sortedWithDates, ...manhwaWithoutDates];
+
+        // Take top 30 (already limited to 30 from batch API)
         const topManhwaList = sortedManhwaList.slice(0, 30);
 
         // Debug: Log top 5 manhwa
-        if (process.env.NODE_ENV === "development") {
-          console.log("Top 5 manhwa sorted by latest chapter date:");
-          topManhwaList.slice(0, 5).forEach((m: any, i: number) => {
-            console.log(`${i + 1}. ${m.manhwaTitle}`);
-            console.log(`   Latest Chapter: ${m.latestChapterDate || "No date"}`);
-            console.log(`   Rating: ${m.rating || "No rating"}`);
-            console.log(`   Chapters: ${m.latestChapters?.map((c: any) => `Ch ${c.number}`).join(", ") || "No chapters"}`);
-          });
-        }
+        console.log("📊 Top 5 manhwa with latest chapter updates:");
+        topManhwaList.slice(0, 5).forEach((m: any, i: number) => {
+          console.log(`${i + 1}. ${m.manhwaTitle}`);
+          console.log(`   📅 Latest Chapter: ${m.latestChapterDate || "No date"}`);
+          console.log(`   ⭐ Rating: ${m.rating || "No rating"}`);
+          console.log(`   📖 Chapters: ${m.latestChapters?.map((c: any) => `Ch ${c.number}`).join(", ") || "No chapters"}`);
+        });
 
         setManhwaList(topManhwaList);
         setError(null);

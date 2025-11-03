@@ -28,17 +28,98 @@ export async function GET(request: NextRequest) {
       .from(SUPABASE_BUCKET)
       .getPublicUrl('metadata/metadata.json')
 
-    const response = await fetch(urlData.publicUrl, { next: { revalidate: 3600 } })
+    // Retry logic with increased timeout
+    let response
+    let lastError
+    const maxRetries = 3
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Attempt ${attempt}/${maxRetries} to fetch metadata.json...`)
+        response = await fetch(urlData.publicUrl, { 
+          next: { revalidate: 3600 },
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(60000) // 60 second timeout for large file
+        })
+        
+        if (response.ok) {
+          console.log(`✅ Successfully fetched metadata.json on attempt ${attempt}`)
+          break // Success, exit retry loop
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+      } catch (err) {
+        lastError = err
+        console.error(`❌ Attempt ${attempt} failed:`, err)
+        
+        if (attempt < maxRetries) {
+          const waitTime = attempt * 2000 // 2s, 4s, 6s
+          console.log(`Waiting ${waitTime}ms before retry...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+        }
+      }
+    }
 
-    if (!response.ok) {
-      console.error('❌ metadata.json not found or failed to fetch')
+    if (!response || !response.ok) {
+      console.error('❌ All attempts failed to fetch metadata.json')
       return NextResponse.json(
-        { success: false, error: 'metadata.json not found in Supabase' },
-        { status: 404 }
+        { 
+          success: false, 
+          error: 'Failed to fetch metadata.json after multiple attempts',
+          details: lastError instanceof Error ? lastError.message : 'Unknown error'
+        },
+        { status: 500 }
       )
     }
 
-    const allManhwa = await response.json()
+    // Use streaming for large file (10MB+)
+    let allManhwa: any[] = []
+    
+    try {
+      if (response.body) {
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let chunks = ''
+
+        console.log('📥 Streaming metadata.json...')
+        let chunkCount = 0
+        
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          chunkCount++
+          chunks += decoder.decode(value, { stream: true })
+          
+          // Log progress every 10 chunks
+          if (chunkCount % 10 === 0) {
+            console.log(`📦 Received ${chunkCount} chunks (${Math.round(chunks.length / 1024 / 1024 * 100) / 100} MB)`)
+          }
+        }
+
+        console.log(`✅ Streaming complete: ${chunkCount} chunks, ${Math.round(chunks.length / 1024 / 1024 * 100) / 100} MB`)
+
+        // Parse complete JSON
+        console.log('🔍 Parsing JSON...')
+        allManhwa = JSON.parse(chunks)
+        console.log(`✅ Parsed ${allManhwa.length} manhwa items`)
+      } else {
+        // Fallback to regular JSON parsing
+        console.log('⚠️ No response.body, using regular JSON parsing...')
+        allManhwa = await response.json()
+      }
+    } catch (parseError) {
+      console.error('❌ Failed to parse metadata.json:', parseError)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Invalid JSON format in metadata.json',
+          details: parseError instanceof Error ? parseError.message : 'Parse error'
+        },
+        { status: 500 }
+      )
+    }
+
     if (!Array.isArray(allManhwa) || allManhwa.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No manhwa data found in metadata.json' },

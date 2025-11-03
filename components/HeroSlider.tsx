@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Manhwa } from '@/types'
+import { getBlurDataUrl } from '@/lib/blurDataUrl'
 
 interface HeroSliderProps {
   manhwaList: Manhwa[]
@@ -95,12 +97,18 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
               className={`${index === currentSlide ? 'block' : 'hidden'} transition-all duration-500`}
             >
               <div className="relative h-[400px] md:h-[500px] rounded-none sm:rounded-2xl overflow-hidden">
-                {/* Background Image with Blur */}
+                {/* Background Image with Blur - Optimized for LCP */}
                 <div className="absolute inset-0">
-                  <img 
-                    src={manhwa.image} 
+                  <Image
+                    src={manhwa.image}
                     alt={manhwa.title}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="100vw"
+                    quality={85}
+                    priority={index === 0}
+                    placeholder="blur"
+                    blurDataURL={getBlurDataUrl(manhwa.type)}
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/80 to-black/40"></div>
                   <div className="absolute inset-0 backdrop-blur-md"></div>

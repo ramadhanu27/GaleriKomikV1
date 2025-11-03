@@ -494,12 +494,12 @@ function SearchContent() {
                   <p className={`text-sm text-left ${
                     darkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
-                    <strong>Required:</strong> komiku-list.json file must exist in bucket komiku-data.
+                    <strong>Required:</strong>.
                   </p>
                   <p className={`text-xs mt-2 text-left ${
                     darkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    This file contains the pre-generated index of all manga for fast searching.
+                    
                   </p>
                 </div>
                 <button

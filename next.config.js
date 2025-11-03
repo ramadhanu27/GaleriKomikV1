@@ -1,6 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // Explicit domains for better performance
+    domains: [
+      'huhhzvaiqskhldhxexcu.supabase.co',
+      'thumbnail.komiku.org',
+      'img.komiku.org',
+      'komiku.org',
+    ],
     remotePatterns: [
       {
         protocol: 'https',
@@ -14,6 +21,9 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // Optimize for LCP
+    unoptimized: false,
+    loader: 'default',
   },
   webpack: (config, { isServer }) => {
     // Disable runtimeChunk splitting to prevent RSC crash
