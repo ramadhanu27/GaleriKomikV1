@@ -3,9 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_BUCKET = 'komiku-data'
 
-// Force dynamic rendering for this route
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+// Enable edge caching for 30 minutes (1800 seconds)
+// Shorter cache for search to keep results relatively fresh
+export const revalidate = 1800
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         try {
           console.log(`Attempt ${attempt}/${maxRetries} to fetch index file...`)
           response = await fetch(urlData.publicUrl, { 
-            cache: 'no-store',
+            next: { revalidate: 1800 }, // Cache for 30 minutes
             headers: { 'User-Agent': 'Mozilla/5.0' },
             signal: AbortSignal.timeout(30000) // 30 second timeout
           })

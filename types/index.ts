@@ -4,7 +4,7 @@ export interface Manhwa {
   manhwaTitle?: string
   image: string
   imageAlt?: string
-  rating?: number
+  rating?: number | null
   status?: string
   type?: string
   author?: string
@@ -16,6 +16,7 @@ export interface Manhwa {
   genres?: string[]
   synopsis?: string
   chapters?: Chapter[]
+  latestChapters?: Chapter[]
   isHot?: boolean
   url?: string
   alternativeTitle?: string
@@ -23,6 +24,8 @@ export interface Manhwa {
   totalChapters?: number
   lastModified?: string
   scrapedAt?: string
+  latestChapterDate?: string | null
+  latestChapterTimestamp?: number
 }
 
 export interface Chapter {

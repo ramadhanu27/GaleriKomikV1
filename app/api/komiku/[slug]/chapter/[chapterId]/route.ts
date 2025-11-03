@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabase, SUPABASE_BUCKET } from '@/lib/supabase-server'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+// Enable edge caching for 3 hours (10800 seconds)
+// Chapter content is static and doesn't change
+export const revalidate = 10800
 
 export async function GET(
   request: Request,

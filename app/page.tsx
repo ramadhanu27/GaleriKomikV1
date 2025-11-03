@@ -26,39 +26,115 @@ export default function Home() {
 
   const fetchManhwa = async () => {
     try {
-      console.log("Fetching manhwa from API...");
+      console.log("📥 Fetching manhwa from batch-latest-chapters API...");
 
-      // Use cache with 5 minute TTL
-      const data = await fetchWithCache(
-        "/api/komiku/list-from-files?limit=50",
-        5 * 60 * 50 // 5 minutes
+      // Step 1: Get metadata for rating and initial sorting
+      const listData = await fetchWithCache(
+        "/api/komiku/list-from-files?limit=100",
+        5 * 60 * 1000 // 5 minutes
       );
 
-      console.log("API Response:", data);
+      if (!listData.success) {
+        setError(listData.error || "Failed to load manhwa list");
+        return;
+      }
 
-      if (data.success) {
-        console.log("Manhwa count:", data.data.manhwa?.length || 0);
+      // Get slugs from metadata
+      const metadataList = listData.data.manhwa;
+      const slugs = metadataList.map((m: any) => m.slug);
+      
+      console.log(`✅ Got ${slugs.length} slugs, fetching full data from batch API...`);
 
-        // API already sorted by scrapedAt, just take top 30
-        const manhwaData = data.data.manhwa.slice(0, 30);
+      // Step 2: Fetch full data with chapters from batch API
+      const chaptersResponse = await fetch("/api/komiku/batch-latest-chapters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slugs }),
+      });
 
-        // Debug: Log top 5 manhwa with scrapedAt and chapters
+      if (!chaptersResponse.ok) {
+        console.error("Failed to fetch from batch API");
+        setError("Failed to load manhwa data");
+        return;
+      }
+
+      const chaptersData = await chaptersResponse.json();
+
+      if (chaptersData.success) {
+        const batchManhwaList = chaptersData.data.chapters;
+        
+        console.log(`✅ Loaded ${batchManhwaList.length} manhwa with full data from batch API`);
+
+        // Create metadata map for quick lookup (for rating)
+        const metadataMap = new Map(
+          metadataList.map((m: any) => [m.slug, m])
+        );
+
+        // Helper function to parse date DD/MM/YYYY to timestamp
+        const parseDate = (dateStr: string): number => {
+          if (!dateStr) return 0;
+          try {
+            const [day, month, year] = dateStr.split('/');
+            return new Date(`${year}-${month}-${day}`).getTime();
+          } catch {
+            return 0;
+          }
+        };
+
+        // Merge data and add latest chapter date
+        const mergedManhwaList = batchManhwaList.map((m: any) => {
+          const metadata = metadataMap.get(m.slug) as any;
+          
+          // Get latest chapter date
+          const latestChapterDate = m.latestChapters?.[0]?.date || null;
+          const latestChapterTimestamp = latestChapterDate ? parseDate(latestChapterDate) : 0;
+
+          return {
+            slug: m.slug,
+            title: m.manhwaTitle,
+            manhwaTitle: m.manhwaTitle,
+            alternativeTitle: m.alternativeTitle,
+            image: m.image,
+            author: m.author,
+            type: m.type,
+            status: m.status,
+            released: m.released,
+            genres: m.genres,
+            synopsis: m.synopsis,
+            totalChapters: m.totalChapters,
+            scrapedAt: m.scrapedAt,
+            lastModified: m.scrapedAt,
+            latestChapters: m.latestChapters,
+            rating: metadata?.rating || null, // ✅ Merge rating from metadata
+            latestChapterDate: latestChapterDate,
+            latestChapterTimestamp: latestChapterTimestamp,
+          };
+        });
+
+        // Sort by latest chapter date (newest first)
+        const sortedManhwaList = mergedManhwaList.sort((a: any, b: any) => {
+          return b.latestChapterTimestamp - a.latestChapterTimestamp;
+        });
+
+        // Take top 30
+        const topManhwaList = sortedManhwaList.slice(0, 30);
+
+        // Debug: Log top 5 manhwa
         if (process.env.NODE_ENV === "development") {
-          console.log("Top 5 manhwa by scrapedAt:");
-          manhwaData.slice(0, 5).forEach((m: any, i: number) => {
-            console.log(`${i + 1}. ${m.title} - ${m.scrapedAt || "No date"}`);
-            console.log(
-              "   Chapters:",
-              m.chapters?.slice(0, 3).map((c: any) => c.number)
-            );
+          console.log("Top 5 manhwa sorted by latest chapter date:");
+          topManhwaList.slice(0, 5).forEach((m: any, i: number) => {
+            console.log(`${i + 1}. ${m.manhwaTitle}`);
+            console.log(`   Latest Chapter: ${m.latestChapterDate || "No date"}`);
+            console.log(`   Rating: ${m.rating || "No rating"}`);
+            console.log(`   Chapters: ${m.latestChapters?.map((c: any) => `Ch ${c.number}`).join(", ") || "No chapters"}`);
           });
         }
 
-        setManhwaList(manhwaData);
+        setManhwaList(topManhwaList);
         setError(null);
       } else {
-        console.error("API returned error:", data.error);
-        setError(data.error || "Failed to load manhwa");
+        console.error("Batch API returned error:", chaptersData.error);
+        setError(chaptersData.error || "Failed to load manhwa data");
       }
     } catch (error) {
       console.error("Error fetching manhwa:", error);

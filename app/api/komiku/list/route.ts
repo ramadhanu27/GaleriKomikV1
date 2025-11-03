@@ -3,9 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_BUCKET = 'komiku-data'
 
-// Force dynamic rendering for this route
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+// Enable edge caching for 1 hour (3600 seconds)
+export const revalidate = 3600
 
 export async function GET(request: NextRequest) {
   try {
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
         .getPublicUrl('komiku/komiku-list.json')
       
       const response = await fetch(urlData.publicUrl, { 
-        cache: 'no-store',
+        next: { revalidate: 3600 }, // Cache for 1 hour
         headers: { 'User-Agent': 'Mozilla/5.0' }
       })
       

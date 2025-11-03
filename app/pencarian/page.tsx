@@ -31,7 +31,7 @@ function SearchContent() {
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [sortBy, setSortBy] = useState('latest')
+  const [sortBy, setSortBy] = useState('popular')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const itemsPerPage = 24
@@ -149,12 +149,11 @@ function SearchContent() {
     if (sortBy === 'title') {
       results.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
     } else if (sortBy === 'popular') {
-      results.sort((a, b) => (b.totalChapters || 0) - (a.totalChapters || 0))
-    } else if (sortBy === 'latest') {
+      // Sort by rating (highest first)
       results.sort((a, b) => {
-        const dateA = new Date(a.lastModified || a.scrapedAt || 0).getTime()
-        const dateB = new Date(b.lastModified || b.scrapedAt || 0).getTime()
-        return dateB - dateA // Sort by latest first (descending)
+        const ratingA = parseFloat(String(a.rating || 0))
+        const ratingB = parseFloat(String(b.rating || 0))
+        return ratingB - ratingA
       })
     }
 
@@ -439,8 +438,7 @@ function SearchContent() {
                       : 'bg-white border-gray-300 text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  <option value="latest">Latest Update</option>
-                  <option value="popular">Most Popular</option>
+                  <option value="popular">Highest Rating</option>
                   <option value="title">A-Z</option>
                 </select>
               </div>

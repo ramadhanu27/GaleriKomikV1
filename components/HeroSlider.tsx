@@ -84,9 +84,9 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
     >
       <div className="relative overflow-hidden">
         {slides.map((manhwa, index) => {
-          // Get the latest chapter (first in array is usually the latest)
-          const latestChapter = manhwa.chapters?.[0]
-          const chapterNumber = latestChapter?.number || 'Latest'
+          // Get the latest chapter from latestChapters array
+          const latestChapter = manhwa.latestChapters?.[0] || manhwa.chapters?.[0]
+          const chapterNumber = latestChapter?.number || manhwa.totalChapters || 'Latest'
           const chapterTitle = latestChapter?.title || ''
           
           return (
@@ -108,8 +108,8 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
 
                 {/* Content */}
                 <div className="relative h-full container-custom flex items-center">
-                  <div className="max-w-xl lg:max-w-2xl text-white z-10 pr-4">
-                    <div className="text-sm font-semibold mb-3 text-white/90">
+                  <div className="max-w-xl lg:max-w-2xl text-yellow-400 z-10 pr-4">
+                    <div className="text-sm font-semibold mb-3 text-white/100">
                       Chapter: {chapterNumber}
                     </div>
                     <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 animate-fade-in line-clamp-2 leading-tight">

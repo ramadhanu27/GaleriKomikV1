@@ -144,6 +144,36 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
             ))}
           </div>
         )}
+
+        {/* Latest 2 Chapters */}
+        {(() => {
+          const chaptersToShow = manhwa.latestChapters || (manhwa.chapters ? manhwa.chapters.slice(-2).reverse() : [])
+          const displayChapters = chaptersToShow.slice(0, 2)
+          
+          return displayChapters.length > 0 ? (
+            <div className="pt-1.5 border-t border-gray-200 dark:border-dark-700">
+              <div className="space-y-1">
+                {displayChapters.map((chapter, idx) => (
+                  <Link
+                    key={idx}
+                    href={`/manhwa/${cleanSlug}/chapter/${chapter.number}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center justify-between text-[10px] hover:bg-primary-50 dark:hover:bg-primary-900/20 px-1.5 py-1 rounded transition-colors group/chapter"
+                  >
+                    <span className="text-gray-700 dark:text-gray-300 group-hover/chapter:text-primary-600 dark:group-hover/chapter:text-primary-400 font-medium truncate">
+                      Ch {chapter.number}
+                    </span>
+                    {chapter.date && (
+                      <span className="text-gray-500 dark:text-gray-500 text-[9px] ml-1 flex-shrink-0">
+                        {chapter.date}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null
+        })()}
       </div>
     </Link>
   )
