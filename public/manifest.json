@@ -1,13 +1,18 @@
 {
-  "name": "Arkomik - Baca Manhwa Bahasa Indonesia",
-  "short_name": "Arkomik",
-  "description": "Platform terbaik untuk membaca manhwa bahasa Indonesia",
+  "name": "Galeri Komik - Baca Komik Bahasa Indonesia",
+  "short_name": "Galeri Komik",
+  "description": "Platform terbaik untuk membaca komik bahasa Indonesia",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#6366f1",
   "orientation": "portrait",
   "icons": [
+    {
+      "src": "/logo-new.jpg",
+      "sizes": "any",
+      "type": "image/jpeg"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",

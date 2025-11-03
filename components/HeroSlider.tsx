@@ -102,29 +102,25 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
                     alt={manhwa.title}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-transparent"></div>
-                  <div className="absolute inset-0 backdrop-blur-sm"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/80 to-black/40"></div>
+                  <div className="absolute inset-0 backdrop-blur-md"></div>
                 </div>
 
                 {/* Content */}
                 <div className="relative h-full container-custom flex items-center">
-                  <div className="max-w-2xl text-white z-10">
-                    <div className="text-sm font-semibold mb-2 text-yellow-400">
-                      {manhwa.chapters && manhwa.chapters.length > 0 ? (
-                        <>Chapter {chapterNumber}{chapterTitle && `: ${chapterTitle}`}</>
-                      ) : (
-                        'New Release'
-                      )}
+                  <div className="max-w-xl lg:max-w-2xl text-white z-10 pr-4">
+                    <div className="text-sm font-semibold mb-3 text-white/90">
+                      Chapter: {chapterNumber}
                     </div>
-                    <h1 className="text-3xl md:text-5xl font-bold mb-4 animate-fade-in line-clamp-2">
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 animate-fade-in line-clamp-2 leading-tight">
                       {(manhwa.manhwaTitle || manhwa.title).replace(/^Komik\s+/i, '')}
                     </h1>
-                    <p className="text-base md:text-lg opacity-90 mb-2 line-clamp-3">
-                      {manhwa.synopsis || 'Baca manhwa seru dengan chapter terbaru yang selalu update setiap hari. Nikmati cerita menarik dengan kualitas terbaik.'}
+                    <p className="text-sm md:text-base text-white/80 mb-4 line-clamp-3 leading-relaxed">
+                      {manhwa.synopsis || 'Pedang teman terdekat dan ajudan tepercaya menusuk tubuhku ...Ketika saya membuka mata saya lagi, saya telah menjadi seorang wanita bangsawan dari kerajaan musuh. Dalam tubuh orang asing yang tidak'}
                     </p>
                     <div className="flex flex-wrap gap-2 mb-6">
-                      {manhwa.genres?.slice(0, 3).map((genre, i) => (
-                        <span key={i} className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm">
+                      {manhwa.genres?.slice(0, 5).map((genre, i) => (
+                        <span key={i} className="px-3 py-1.5 border border-white/30 backdrop-blur-sm rounded text-xs font-medium text-white/90 hover:bg-white/10 transition-colors">
                           {genre}
                         </span>
                       ))}
@@ -132,16 +128,19 @@ export default function HeroSlider({ manhwaList }: HeroSliderProps) {
                     <div className="flex gap-4">
                       <Link
                         href={`/manhwa/${manhwa.slug}`}
-                        className="px-6 py-3 bg-yellow-500 text-gray-900 rounded-lg font-semibold hover:bg-yellow-400 transition-colors shadow-lg flex items-center gap-2"
+                        className="px-6 py-3 bg-yellow-400 text-black rounded font-bold hover:bg-yellow-300 transition-colors shadow-lg flex items-center gap-2 text-sm md:text-base"
                       >
-                        Start Reading →
+                        Start Reading
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       </Link>
                     </div>
                   </div>
 
-                  {/* Manhwa Cover Image */}
-                  <div className="hidden lg:block absolute right-10 top-1/2 -translate-y-1/2">
-                    <div className="w-64 h-80 relative shadow-2xl rounded-lg overflow-hidden transform hover:scale-105 transition-transform">
+                  {/* Manhwa Cover Image - Positioned on Right */}
+                  <div className="hidden lg:block absolute right-8 xl:right-16 top-1/2 -translate-y-1/2">
+                    <div className="w-56 xl:w-72 h-72 xl:h-96 relative shadow-2xl rounded-lg overflow-hidden transform hover:scale-105 transition-transform">
                       <img 
                         src={manhwa.image} 
                         alt={manhwa.title} 

@@ -48,25 +48,26 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/logo-new.jpg', sizes: 'any', type: 'image/jpeg' },
       { url: '/icon.png', type: 'image/png', sizes: '32x32' },
     ],
+    shortcut: '/logo-new.jpg',
     apple: [
-      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/logo-new.jpg', sizes: '180x180', type: 'image/jpeg' },
     ],
   },
   manifest: '/manifest.json',
   openGraph: {
-    title: 'Arkomik - Baca Manhwa Bahasa Indonesia',
-    description: 'Platform terbaik untuk membaca manhwa bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
+    title: 'Galeri Komik - Baca Komik Bahasa Indonesia',
+    description: 'Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
     url: 'https://www.galerikomik.cyou',
-    siteName: 'Arkomik',
+    siteName: 'Galeri Komik',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Arkomik - Baca Manhwa Bahasa Indonesia',
+        alt: 'Galeri Komik - Baca Komik Bahasa Indonesia',
       },
     ],
     locale: 'id_ID',
@@ -74,8 +75,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Arkomik - Baca Manhwa Bahasa Indonesia',
-    description: 'Platform terbaik untuk membaca manhwa bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
+    title: 'Galeri Komik - Baca Komik Bahasa Indonesia',
+    description: 'Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
     images: ['/og-image.png'],
   },
   alternates: {

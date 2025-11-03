@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import ManhwaCard from "@/components/ManhwaCard";
 import HeroSlider from "@/components/HeroSlider";
-import PopularSidebar from "@/components/PopularSidebar";
 import AnnouncementBanner from "@/components/AnnouncementBanner";
 import { Manhwa } from "@/types";
 import { fetchWithCache } from "@/lib/cache";
@@ -11,11 +10,9 @@ import { fetchWithRetry } from "@/lib/fetchWithRetry";
 
 export default function Home() {
   const [manhwaList, setManhwaList] = useState<Manhwa[]>([]);
-  const [popularList, setPopularList] = useState<Manhwa[]>([]);
   const [recommendedList, setRecommendedList] = useState<Manhwa[]>([]);
-  const [selectedType, setSelectedType] = useState<string>("Komik");
+  const [selectedType, setSelectedType] = useState<string>("Manhwa");
   const [loading, setLoading] = useState(true);
-  const [loadingPopular, setLoadingPopular] = useState(true);
   const [loadingRecommended, setLoadingRecommended] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,7 +21,6 @@ export default function Home() {
 
   useEffect(() => {
     fetchManhwa();
-    fetchPopular();
     fetchRecommended();
   }, []);
 
@@ -72,37 +68,7 @@ export default function Home() {
     }
   };
 
-  const fetchPopular = async () => {
-    try {
-      console.log("🎲 Fetching manhwa for popular section...");
-
-      // Fetch manhwa from files (more data available)
-      const data = await fetchWithCache(
-        "/api/komiku/list-from-files?limit=20",
-        5 * 60 * 50 // 5 minutes
-      );
-
-      if (data.success) {
-        const allManhwa = data.data.manhwa;
-
-        // Sort by totalChapters for initial load (consistent between server/client)
-        const sorted = [...allManhwa]
-          .filter((m) => m.totalChapters && m.totalChapters > 0)
-          .sort((a, b) => (b.totalChapters || 0) - (a.totalChapters || 0))
-          .slice(0, 15); // Take top 15 popular (5 columns × 3 rows)
-
-        console.log("✅ Manhwa loaded:", sorted.length);
-        setPopularList(sorted);
-      }
-    } catch (error) {
-      console.error("❌ Error fetching manhwa:", error);
-      // Don't show error for popular list, just keep it empty
-    } finally {
-      setLoadingPopular(false);
-    }
-  };
-
-  const fetchRecommended = async (type: string = "Komik") => {
+  const fetchRecommended = async (type: string = "Manhwa") => {
     try {
       console.log("🎯 Fetching recommended manhwa...", type);
       setLoadingRecommended(true);
@@ -149,23 +115,6 @@ export default function Home() {
     }
   };
 
-  // Randomize after initial load (client-side only)
-  useEffect(() => {
-    if (popularList.length > 0 && !loadingPopular && !isRandomized) {
-      // Fisher-Yates shuffle algorithm for true randomization
-      const shuffled = [...popularList];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-
-      // Take first 12 random manhwa
-      const randomManhwa = shuffled.slice(0, 15);
-      setPopularList(randomManhwa);
-      setIsRandomized(true);
-    }
-  }, [popularList, loadingPopular, isRandomized]);
-
   return (
     <div className="py-8">
       <div className="container-custom">
@@ -188,7 +137,7 @@ export default function Home() {
             <button
               onClick={() => {
                 fetchManhwa();
-                fetchPopular();
+                fetchRecommended();
               }}
               className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline">
               Retry
@@ -206,7 +155,7 @@ export default function Home() {
                 
                 {/* Type Filter Buttons - Responsive */}
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  {["Komik", "Manhwa", "Manga", "Manhua"].map((type) => (
+                  {["Manhwa", "Manga", "Manhua"].map((type) => (
                     <button
                       key={type}
                       onClick={() => {
@@ -345,11 +294,6 @@ export default function Home() {
               )}
             </section>
           </div>
-
-          {/* Sidebar */}
-          <aside className="lg:col-span-4 xl:col-span-3">
-            <PopularSidebar />
-          </aside>
         </div>
       </div>
     </div>
