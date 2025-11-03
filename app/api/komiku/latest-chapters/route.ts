@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
           .getPublicUrl(path)
 
         const response = await fetch(urlData.publicUrl, {
-          next: { revalidate: 1800 },
+          cache: 'no-store', // Disable cache for large files (>2MB)
           headers: { 'User-Agent': 'Mozilla/5.0' },
         })
 
