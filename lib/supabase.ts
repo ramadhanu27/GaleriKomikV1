@@ -11,23 +11,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    // Use cookie storage instead of localStorage for better security
-    storage: typeof window !== 'undefined' ? {
-      getItem: (key: string) => {
-        const cookies = document.cookie.split(';')
-        const cookie = cookies.find(c => c.trim().startsWith(`${key}=`))
-        return cookie ? decodeURIComponent(cookie.split('=')[1]) : null
-      },
-      setItem: (key: string, value: string) => {
-        // Set cookie with Secure, SameSite, and HttpOnly-like behavior
-        // Note: HttpOnly can only be set server-side, but this reduces exposure
-        document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax; Secure`
-      },
-      removeItem: (key: string) => {
-        document.cookie = `${key}=; path=/; max-age=0`
-      }
-    } : undefined,
-    storageKey: 'arkomik-auth',
+    // Use default localStorage (no custom cookie storage)
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,

@@ -170,20 +170,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Sign out from Supabase
+      // Sign out from Supabase (will automatically clear localStorage)
       await supabase.auth.signOut()
-      
-      // Clear all auth-related data from localStorage
-      if (typeof window !== 'undefined') {
-        // Remove Supabase auth token
-        localStorage.removeItem('arkomik-auth')
-        // Remove any other auth-related keys
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') || key.includes('auth') || key.includes('supabase')) {
-            localStorage.removeItem(key)
-          }
-        })
-      }
       
       setUser(null)
     } catch (error) {
