@@ -31,10 +31,10 @@ function SearchContent() {
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [sortBy, setSortBy] = useState('popular')
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'popular')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const itemsPerPage = 24
+  const itemsPerPage = 18
   
   // Stats
   const [totalChapters, setTotalChapters] = useState(0)
@@ -154,6 +154,25 @@ function SearchContent() {
         const ratingA = parseFloat(String(a.rating || 0))
         const ratingB = parseFloat(String(b.rating || 0))
         return ratingB - ratingA
+      })
+    } else if (sortBy === 'latest') {
+      // Sort by latest chapter date (newest first)
+      results.sort((a, b) => {
+        const dateA = a.lastTwoChapters?.[0]?.date || a.lastModified || ''
+        const dateB = b.lastTwoChapters?.[0]?.date || b.lastModified || ''
+        
+        // Parse DD/MM/YYYY or ISO format
+        const parseDate = (dateStr: string): number => {
+          if (!dateStr) return 0
+          
+          if (dateStr.includes('/')) {
+            const [day, month, year] = dateStr.split('/')
+            return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`).getTime()
+          }
+          return new Date(dateStr).getTime()
+        }
+        
+        return parseDate(dateB) - parseDate(dateA)
       })
     }
 
@@ -438,6 +457,7 @@ function SearchContent() {
                       : 'bg-white border-gray-300 text-gray-900 hover:bg-gray-50'
                   }`}
                 >
+                  <option value="latest">Latest Update</option>
                   <option value="popular">Highest Rating</option>
                   <option value="title">A-Z</option>
                 </select>

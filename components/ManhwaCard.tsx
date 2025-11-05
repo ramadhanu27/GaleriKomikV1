@@ -15,7 +15,22 @@ interface ManhwaCardProps {
 
 // Helper function to check if manhwa was updated in last 7 days
 const isRecent = (lastModified: string) => {
-  const modifiedDate = new Date(lastModified)
+  if (!lastModified) return false
+  
+  let modifiedDate: Date
+  
+  // Check if it's DD/MM/YYYY format (from chapter date)
+  if (lastModified.includes('/')) {
+    const [day, month, year] = lastModified.split('/')
+    modifiedDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+  } else {
+    // ISO format (from scrapedAt)
+    modifiedDate = new Date(lastModified)
+  }
+  
+  // Check if date is valid
+  if (isNaN(modifiedDate.getTime())) return false
+  
   const now = new Date()
   const diffTime = Math.abs(now.getTime() - modifiedDate.getTime())
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -149,29 +164,33 @@ export default function ManhwaCard({ manhwa, showNewBadge = false }: ManhwaCardP
 
         {/* Latest 2 Chapters */}
         {(() => {
-          const chaptersToShow = manhwa.latestChapters || (manhwa.chapters ? manhwa.chapters.slice(-2).reverse() : [])
+          // Use lastTwoChapters from API (new format) or fallback to old format
+          const chaptersToShow = manhwa.lastTwoChapters || manhwa.latestChapters || (manhwa.chapters ? manhwa.chapters.slice(-2).reverse() : [])
           const displayChapters = chaptersToShow.slice(0, 2)
           
           return displayChapters.length > 0 ? (
             <div className="pt-1.5 border-t border-gray-200 dark:border-dark-700">
-              <div className="space-y-1">
-                {displayChapters.map((chapter, idx) => (
-                  <Link
-                    key={idx}
-                    href={`/manhwa/${cleanSlug}/chapter/${chapter.number}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center justify-between text-[10px] hover:bg-primary-50 dark:hover:bg-primary-900/20 px-1.5 py-1 rounded transition-colors group/chapter"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300 group-hover/chapter:text-primary-600 dark:group-hover/chapter:text-primary-400 font-medium truncate">
-                      Ch {chapter.number}
-                    </span>
-                    {chapter.date && (
-                      <span className="text-gray-500 dark:text-gray-500 text-[9px] ml-1 flex-shrink-0">
-                        {chapter.date}
+              <div className="space-y-0.5">
+                {displayChapters.map((chapter, idx) => {
+                  // Extract chapter number from title (e.g., "Chapter 105" -> "105")
+                  const chapterNumber = chapter.title?.match(/\d+/)?.[0] || chapter.number || idx + 1
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-[10px] hover:bg-primary-50 dark:hover:bg-primary-900/20 px-1.5 py-0.5 rounded transition-colors"
+                    >
+                      <span className="text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-semibold truncate">
+                        {chapter.title || `Ch ${chapterNumber}`}
                       </span>
-                    )}
-                  </Link>
-                ))}
+                      {chapter.date && (
+                        <span className="text-gray-500 dark:text-gray-400 text-[9px] ml-2 flex-shrink-0">
+                          {chapter.date}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           ) : null

@@ -43,6 +43,15 @@ A modern, full-featured Korean manhwa (webtoon) reading platform built with **Ne
 ✅ **Pagination** - Efficient data loading with pagination  
 ✅ **Search Functionality** - Fast client-side search  
 
+### **Security Features** 🔒
+✅ **HttpOnly Cookies** - Tokens stored in HttpOnly cookies (NOT accessible by JavaScript)  
+✅ **Server-Side Authentication** - All auth logic handled server-side via API routes  
+✅ **CSRF Protection** - SameSite cookie attribute prevents cross-site attacks  
+✅ **Short Token Expiry** - Access tokens expire in 15 minutes with auto-refresh  
+✅ **Content Security Policy** - CSP headers prevent XSS attacks  
+✅ **Secure Flag** - Cookies only sent over HTTPS in production  
+✅ **Token Rotation** - Automatic refresh token rotation every 14 minutes  
+
 ---
 
 ## 📦 Installation

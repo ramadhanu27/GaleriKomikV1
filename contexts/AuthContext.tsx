@@ -1,9 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { User, getCurrentUser } from '@/lib/auth'
-import { validateAndFixSession, debugSession } from '@/lib/sessionHelper'
+import { User } from '@/lib/auth'
 
 interface AuthContextType {
   user: User | null
@@ -23,56 +21,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Initialize auth on mount
     const initAuth = async () => {
-      console.log('🚀 Initializing auth...')
+      console.log('🚀 Initializing auth (server-side)...')
       
-      // Debug session info
-      debugSession()
+      // Clean up old auth system (one-time)
+      try {
+        await fetch('/api/auth/cleanup', {
+          method: 'POST',
+          credentials: 'include',
+        })
+        console.log('🧹 Old auth system cleaned')
+      } catch (error) {
+        console.error('Cleanup error:', error)
+      }
       
-      // Validate and fix session if needed
-      const isValid = await validateAndFixSession()
-      console.log('Session validation result:', isValid)
-      
-      // Check user regardless of validation result
       await checkUser()
     }
     
     initAuth()
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔐 Auth state changed:', event, session?.user?.email)
-      
-      if (event === 'SIGNED_IN' && session) {
-        console.log('✅ User signed in, updating context')
-        await checkUser()
-      } else if (event === 'SIGNED_OUT') {
-        console.log('👋 User signed out')
-        setUser(null)
-      } else if (event === 'TOKEN_REFRESHED') {
-        console.log('🔄 Token refreshed')
-        await checkUser()
-      } else if (event === 'USER_UPDATED') {
-        console.log('👤 User updated')
-        await checkUser()
-      } else if (event === 'INITIAL_SESSION') {
-        console.log('🎯 Initial session loaded')
-        await checkUser()
-      }
-    })
+    // Set up auto-refresh (every 14 minutes)
+    const refreshInterval = setInterval(async () => {
+      console.log('🔄 Auto-refreshing token...')
+      await refreshToken()
+    }, 14 * 60 * 1000) // 14 minutes
 
     return () => {
-      subscription.unsubscribe()
+      clearInterval(refreshInterval)
     }
   }, [])
 
   const checkUser = async () => {
     try {
-      console.log('🔍 Checking user session...')
-      const currentUser = await getCurrentUser()
+      console.log('🔍 Checking user session (server-side)...')
       
-      if (currentUser) {
-        console.log('✅ User found:', currentUser.email)
-        setUser(currentUser)
+      // Call server-side API to get user (uses HttpOnly cookie)
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include', // Important: send cookies
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ User found:', data.user.email)
+        setUser(data.user)
       } else {
         console.log('⚠️ No user session found')
         setUser(null)
@@ -85,95 +75,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const refreshToken = async () => {
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      
+      if (response.ok) {
+        console.log('✅ Token refreshed')
+        return true
+      } else {
+        console.log('⚠️ Token refresh failed')
+        setUser(null)
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Token refresh error:', error)
+      setUser(null)
+      return false
+    }
+  }
+
   const signIn = async (emailOrUsername: string, password: string) => {
     try {
-      let email = emailOrUsername
-      
-      // Check if input is username
-      if (!emailOrUsername.includes('@')) {
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('email')
-          .eq('username', emailOrUsername)
-          .single()
-        
-        if (userError || !userData) {
-          return { success: false, error: 'Username tidak ditemukan' }
-        }
-        
-        email = userData.email
-      }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Call server-side login API
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Important: receive cookies
+        body: JSON.stringify({
+          email: emailOrUsername.includes('@') ? emailOrUsername : undefined,
+          username: !emailOrUsername.includes('@') ? emailOrUsername : undefined,
+          password,
+        }),
       })
 
-      if (error) {
-        return { success: false, error: 'Email/Username atau password salah' }
+      const data = await response.json()
+
+      if (!response.ok) {
+        return { success: false, error: data.error || 'Login failed' }
       }
 
-      // Set user immediately from auth data (faster)
-      if (data.user) {
-        setUser({
-          id: data.user.id,
-          email: data.user.email!,
-          username: data.user.user_metadata?.username,
-          avatar_url: data.user.user_metadata?.avatar_url,
-          created_at: data.user.created_at,
-        })
-      }
+      // Set user from response (NO TOKENS!)
+      setUser(data.user)
+      console.log('✅ Logged in successfully')
 
       return { success: true }
     } catch (error: any) {
-      return { success: false, error: error.message }
+      console.error('Login error:', error)
+      return { success: false, error: error.message || 'Login failed' }
     }
   }
 
   const signUp = async (email: string, password: string, username: string) => {
     try {
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { username },
+      // Call server-side register API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: receive cookies
+        body: JSON.stringify({
+          email,
+          password,
+          username,
+        }),
       })
 
-      if (signUpError) {
-        return { success: false, error: signUpError.message }
+      const data = await response.json()
+
+      if (!response.ok) {
+        return { success: false, error: data.error || 'Registration failed' }
       }
 
-      if (!authData.user) {
-        return { success: false, error: 'Failed to create user' }
-      }
+      // Set user from response (NO TOKENS!)
+      setUser(data.user)
+      console.log('✅ Registered successfully')
 
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: authData.user.email,
-          username,
-        })
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-      }
-
-      await checkUser()
       return { success: true }
     } catch (error: any) {
-      return { success: false, error: error.message }
+      console.error('Register error:', error)
+      return { success: false, error: error.message || 'Registration failed' }
     }
   }
 
   const signOut = async () => {
     try {
-      // Sign out from Supabase (will automatically clear localStorage)
-      await supabase.auth.signOut()
+      // Call server-side logout API (clears HttpOnly cookies)
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
       
       setUser(null)
+      console.log('✅ Logged out successfully')
     } catch (error) {
       console.error('Error signing out:', error)
       setUser(null)

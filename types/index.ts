@@ -17,6 +17,7 @@ export interface Manhwa {
   synopsis?: string
   chapters?: Chapter[]
   latestChapters?: Chapter[]
+  lastTwoChapters?: Chapter[]
   isHot?: boolean
   url?: string
   alternativeTitle?: string

@@ -7,6 +7,11 @@ const SUPABASE_BUCKET = 'komiku-data'
 // Shorter cache for search to keep results relatively fresh
 export const revalidate = 1800
 
+// In-memory cache for metadata (to avoid re-fetching large file)
+let cachedMetadata: any[] | null = null
+let cacheTimestamp: number = 0
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
 export async function GET(request: NextRequest) {
   try {
     // Check if environment variables are available
@@ -30,48 +35,61 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || ''
     const withCover = searchParams.get('withCover') === 'true'
 
-    // Get file list from Chapter/komiku folder using public URL approach
-    console.log('Loading manhwa data from Chapter/komiku folder...')
     let manhwaList: any[] = []
     
-    try {
-      // Use metadata.json from metadata folder which contains full data
-      const { data: urlData } = supabase.storage
-        .from(SUPABASE_BUCKET)
-        .getPublicUrl('metadata/metadata.json')
+    // Check cache first
+    const now = Date.now()
+    if (cachedMetadata && (now - cacheTimestamp) < CACHE_DURATION) {
+      console.log('✅ Using cached metadata for search')
+      manhwaList = cachedMetadata
+    } else {
+      console.log('📥 Fetching metadata.json for search...')
       
-      console.log('Fetching index file from:', urlData.publicUrl)
-      
-      // Retry logic with increased timeout
-      let response
-      let lastError
-      const maxRetries = 3
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          console.log(`Attempt ${attempt}/${maxRetries} to fetch index file...`)
-          response = await fetch(urlData.publicUrl, { 
-            next: { revalidate: 1800 }, // Cache for 30 minutes
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-            signal: AbortSignal.timeout(30000) // 30 second timeout
-          })
-          break // Success, exit retry loop
-        } catch (err) {
-          lastError = err
-          console.error(`Attempt ${attempt} failed:`, err)
-          if (attempt < maxRetries) {
-            console.log(`Waiting 2 seconds before retry...`)
-            await new Promise(resolve => setTimeout(resolve, 2000))
+      try {
+        // Use metadata.json from metadata folder which contains full data
+        const { data: urlData } = supabase.storage
+          .from(SUPABASE_BUCKET)
+          .getPublicUrl('metadata/metadata.json')
+        
+        // Retry logic with increased timeout
+        let response
+        let lastError
+        const maxRetries = 3
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`Attempt ${attempt}/${maxRetries} to fetch metadata.json (11MB)...`)
+            response = await fetch(urlData.publicUrl, { 
+              next: { revalidate: 1800 },
+              headers: { 
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': 'application/json',
+              },
+              signal: AbortSignal.timeout(120000) // 120 second timeout for 11MB file
+            })
+            
+            if (response.ok) {
+              console.log(`✅ Successfully fetched metadata.json on attempt ${attempt}`)
+              break
+            } else {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+            }
+          } catch (err) {
+            lastError = err
+            console.error(`Attempt ${attempt} failed:`, err)
+            if (attempt < maxRetries) {
+              const waitTime = attempt * 2000
+              console.log(`Waiting ${waitTime}ms before retry...`)
+              await new Promise(resolve => setTimeout(resolve, waitTime))
+            }
           }
         }
-      }
-      
-      if (!response) {
-        throw lastError || new Error('Failed to fetch after retries')
-      }
-      
-      if (response.ok) {
-        // Use streaming for large file (10MB+)
+        
+        if (!response || !response.ok) {
+          throw lastError || new Error('Failed to fetch after retries')
+        }
+        
+        // Use streaming for large file (11MB+)
         if (response.body) {
           const reader = response.body.getReader()
           const decoder = new TextDecoder()
@@ -81,59 +99,30 @@ export async function GET(request: NextRequest) {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-            
             chunks += decoder.decode(value, { stream: true })
           }
 
-          // Parse complete JSON
-          try {
-            manhwaList = JSON.parse(chunks)
-            console.log(`✅ Streamed and parsed ${manhwaList.length} manhwa from metadata.json`)
-          } catch (parseError) {
-            console.error('❌ Failed to parse metadata.json:', parseError)
-            return NextResponse.json(
-              { success: false, error: 'Invalid JSON format in metadata.json' },
-              { status: 500 }
-            )
-          }
+          manhwaList = JSON.parse(chunks)
+          console.log(`✅ Parsed ${manhwaList.length} manhwa from metadata.json`)
+          
+          // Cache the result
+          cachedMetadata = manhwaList
+          cacheTimestamp = Date.now()
+          console.log('💾 Metadata cached for search')
         } else {
-          // Fallback to regular JSON parsing
           manhwaList = await response.json()
-          console.log(`Loaded ${manhwaList.length} manhwa from metadata.json with full data`)
         }
-        
-        // metadata.json already has all data (image, synopsis, genres, status, type, totalChapters)
-        // No need to load from individual JSON files!
-        console.log('Sample data:', manhwaList[0] ? {
-          slug: manhwaList[0].slug,
-          hasImage: !!manhwaList[0].image,
-          hasGenres: !!manhwaList[0].genres,
-          hasStatus: !!manhwaList[0].status,
-          hasType: !!manhwaList[0].type,
-          hasTotalChapters: !!manhwaList[0].totalChapters
-        } : 'No data')
-      } else {
-        // If metadata file doesn't exist, return helpful error
-        console.log('Metadata file not found.')
+      } catch (err) {
+        console.error('Error loading metadata file:', err)
         return NextResponse.json(
           { 
             success: false, 
-            error: 'Search metadata not available.',
-            hint: 'File metadata.json must exist in metadata folder'
+            error: 'Failed to load search metadata',
+            details: err instanceof Error ? err.message : 'Unknown error'
           },
-          { status: 404 }
+          { status: 500 }
         )
       }
-    } catch (err) {
-      console.error('Error loading metadata file:', err)
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Failed to load search metadata',
-          hint: 'Check if metadata/metadata.json exists in bucket komiku-data'
-        },
-        { status: 500 }
-      )
     }
 
     // Filter by search query
@@ -171,11 +160,32 @@ export async function GET(request: NextRequest) {
 
     console.log(`Filtered to ${manhwaList.length} manhwa`)
 
+    // Format response to match list-from-files format
+    const formattedList = manhwaList.map((m: any) => ({
+      slug: m.slug,
+      title: m.manhwaTitle || m.title,
+      image: m.image,
+      synopsis: m.synopsis || '',
+      genres: m.genres || [],
+      status: m.status || 'Unknown',
+      type: m.type || 'Manhwa',
+      rating: m.rating ? parseFloat(m.rating) : null,
+      totalChapters: m.totalChapters || m.chapters?.length || 0,
+      lastTwoChapters: (m.chapters || [])
+        .slice(-2)
+        .reverse()
+        .map((ch: any) => ({
+          title: ch.title,
+          url: ch.url,
+          date: ch.date,
+        })),
+    }))
+
     return NextResponse.json({
       success: true,
       data: {
-        manhwa: manhwaList,
-        total: manhwaList.length,
+        manhwa: formattedList,
+        total: formattedList.length,
       },
     })
   } catch (error) {

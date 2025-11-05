@@ -5,6 +5,11 @@ const SUPABASE_BUCKET = 'komiku-data'
 // Enable edge caching for 1 hour (3600 seconds)
 export const revalidate = 3600
 
+// In-memory cache for metadata (to avoid re-fetching large file)
+let cachedMetadata: any[] | null = null
+let cacheTimestamp: number = 0
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
 export async function GET(request: NextRequest) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -21,6 +26,53 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '30', 10)
 
+    // Check cache first
+    const now = Date.now()
+    if (cachedMetadata && (now - cacheTimestamp) < CACHE_DURATION) {
+      console.log('✅ Using cached metadata (age:', Math.round((now - cacheTimestamp) / 1000), 'seconds)')
+      const allManhwa = cachedMetadata
+      
+      // Sort and limit
+      const sorted = allManhwa
+        .filter((m: any) => m.scrapedAt || m.lastModified)
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.scrapedAt || a.lastModified || 0).getTime()
+          const dateB = new Date(b.scrapedAt || b.lastModified || 0).getTime()
+          return dateB - dateA
+        })
+      
+      const limited = sorted.slice(0, limit)
+      
+      const result = limited.map((m: any) => ({
+        slug: m.slug,
+        title: m.manhwaTitle || m.title,
+        image: m.image,
+        synopsis: m.synopsis || '',
+        genres: m.genres || [],
+        status: m.status || 'Unknown',
+        type: m.type || 'Manhwa',
+        rating: m.rating ? parseFloat(m.rating) : null,
+        totalChapters: m.totalChapters || m.chapters?.length || 0,
+        lastTwoChapters: (m.chapters || [])
+          .slice(-2)
+          .reverse()
+          .map((ch: any) => ({
+            title: ch.title,
+            url: ch.url,
+            date: ch.date,
+          })),
+      }))
+      
+      return NextResponse.json({
+        success: true,
+        data: {
+          manhwa: result,
+          total: result.length,
+          cached: true,
+        },
+      })
+    }
+
     console.log('📥 Fetching metadata.json from Supabase...')
 
     // Ambil file metadata.json dari folder metadata
@@ -35,11 +87,14 @@ export async function GET(request: NextRequest) {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Attempt ${attempt}/${maxRetries} to fetch metadata.json...`)
+        console.log(`Attempt ${attempt}/${maxRetries} to fetch metadata.json (11MB file)...`)
         response = await fetch(urlData.publicUrl, { 
           next: { revalidate: 3600 },
-          headers: { 'User-Agent': 'Mozilla/5.0' },
-          signal: AbortSignal.timeout(60000) // 60 second timeout for large file
+          headers: { 
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': 'application/json',
+          },
+          signal: AbortSignal.timeout(120000) // 120 second timeout for 11MB file
         })
         
         if (response.ok) {
@@ -103,6 +158,11 @@ export async function GET(request: NextRequest) {
         console.log('🔍 Parsing JSON...')
         allManhwa = JSON.parse(chunks)
         console.log(`✅ Parsed ${allManhwa.length} manhwa items`)
+        
+        // Cache the result
+        cachedMetadata = allManhwa
+        cacheTimestamp = Date.now()
+        console.log('💾 Metadata cached for 5 minutes')
       } else {
         // Fallback to regular JSON parsing
         console.log('⚠️ No response.body, using regular JSON parsing...')
@@ -140,29 +200,51 @@ export async function GET(request: NextRequest) {
 
     // Batasi hasil
     const limited = sorted.slice(0, limit)
+    
+    console.log(`📊 Total manhwa in metadata.json: ${allManhwa.length}`)
+    console.log(`📊 After sorting: ${sorted.length}`)
+    console.log(`📊 After limit (${limit}): ${limited.length}`)
 
     // Format hasil dengan field penting saja
-    const result = limited.map((m: any) => ({
-      slug: m.slug,
-      title: m.manhwaTitle || m.title,
-      image: m.image,
-      genres: m.genres || [],
-      status: m.status || 'Unknown',
-      type: m.type || 'Manhwa',
-      rating: m.rating ? parseFloat(m.rating) : null,
-      totalChapters: m.totalChapters || m.chapters?.length || 0,
-      scrapedAt: m.scrapedAt || null,
-      lastModified: m.scrapedAt || m.lastModified || null, // Add lastModified for NEW badge
-      latestChapters: (m.chapters || [])
-        .slice(-3)
-        .reverse()
-        .map((ch: any) => ({
-          number: ch.number,
-          title: ch.title,
-          url: ch.url,
-          date: ch.date,
-        })),
-    }))
+    const result = limited.map((m: any) => {
+      // Use lastTwoChapters from metadata if available, otherwise generate from chapters
+      let lastTwoChapters = m.lastTwoChapters || []
+      
+      // If metadata doesn't have lastTwoChapters, generate from chapters array
+      if (lastTwoChapters.length === 0 && m.chapters && m.chapters.length > 0) {
+        lastTwoChapters = m.chapters
+          .slice(-2)
+          .reverse()
+          .map((ch: any) => ({
+            title: ch.title,
+            url: ch.url,
+            date: ch.date,
+          }))
+      }
+      
+      // Normalize type to ensure consistency
+      let normalizedType = m.type || 'Manhwa'
+      normalizedType = normalizedType.trim()
+      
+      // Ensure proper capitalization
+      if (normalizedType.toLowerCase() === 'manhwa') normalizedType = 'Manhwa'
+      else if (normalizedType.toLowerCase() === 'manga') normalizedType = 'Manga'
+      else if (normalizedType.toLowerCase() === 'manhua') normalizedType = 'Manhua'
+      
+      return {
+        slug: m.slug,
+        title: m.manhwaTitle || m.title,
+        image: m.image,
+        synopsis: m.synopsis || '',
+        genres: m.genres || [],
+        status: m.status || 'Unknown',
+        type: normalizedType,
+        rating: m.rating ? parseFloat(m.rating) : null,
+        totalChapters: m.totalChapters || m.chapters?.length || 0,
+        lastTwoChapters,
+        lastModified: m.scrapedAt || m.lastModified || lastTwoChapters[0]?.date || null,
+      }
+    })
 
     return NextResponse.json({
       success: true,

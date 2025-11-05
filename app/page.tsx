@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import ManhwaCard from "@/components/ManhwaCard";
 import HeroSlider from "@/components/HeroSlider";
 import AnnouncementBanner from "@/components/AnnouncementBanner";
@@ -41,7 +42,6 @@ export default function Home() {
       }
 
       const manhwaList = listData.data.manhwa;
-      console.log(`✅ Loaded ${manhwaList.length} manhwa from metadata`);
 
       // Helper function to parse date DD/MM/YYYY to timestamp
       const parseDate = (dateStr: string): number => {
@@ -66,13 +66,23 @@ export default function Home() {
 
       // Add timestamp for sorting
       const manhwaWithTimestamp = manhwaList.map((m: any) => {
-        const latestChapterDate = m.latestChapters?.[0]?.date || null;
+        // Use lastTwoChapters (new format) or fallback to latestChapters or chapters
+        let chapters = m.lastTwoChapters || m.latestChapters || []
+        
+        // If still empty, try to get from chapters array
+        if (chapters.length === 0 && m.chapters && m.chapters.length > 0) {
+          chapters = m.chapters.slice(-2).reverse()
+        }
+        
+        const latestChapterDate = chapters[0]?.date || null;
         const latestChapterTimestamp = latestChapterDate ? parseDate(latestChapterDate) : 0;
 
         return {
           ...m,
           latestChapterDate,
           latestChapterTimestamp,
+          // Ensure lastTwoChapters is available for ManhwaCard
+          lastTwoChapters: chapters,
         };
       });
 
@@ -81,34 +91,8 @@ export default function Home() {
         return b.latestChapterTimestamp - a.latestChapterTimestamp;
       });
 
-      // Check position of rankers-return-remake
-      const rankersIndex = sortedManhwaList.findIndex((m: any) => m.slug === 'rankers-return-remake');
-      if (rankersIndex !== -1) {
-        const rankers = sortedManhwaList[rankersIndex];
-        console.log(`🔍 Rankers Return Remake position: #${rankersIndex + 1} of ${sortedManhwaList.length}`);
-        console.log(`   Latest Chapter: ${rankers.latestChapterDate}`);
-        console.log(`   Timestamp: ${rankers.latestChapterTimestamp}`);
-        console.log(`   Date Object: ${new Date(rankers.latestChapterTimestamp).toISOString()}`);
-        console.log(`   Chapters:`, rankers.latestChapters);
-        console.log(`   ${rankersIndex < 100 ? '✅ WILL BE SHOWN' : '❌ NOT IN TOP 100'}`);
-      } else {
-        console.log(`❌ Rankers Return Remake NOT FOUND in sorted list`);
-      }
-
       // Take top 100 for homepage display
       const topManhwaList = sortedManhwaList.slice(0, 100);
-
-      // Debug: Log top 5 manhwa
-      if (process.env.NODE_ENV === "development") {
-        console.log("Top 5 manhwa sorted by latest chapter date:");
-        topManhwaList.slice(0, 5).forEach((m: any, i: number) => {
-          console.log(`${i + 1}. ${m.manhwaTitle || m.title}`);
-          console.log(`   Latest Chapter: ${m.latestChapterDate || "No date"}`);
-          console.log(`   Timestamp: ${m.latestChapterTimestamp}`);
-          console.log(`   Rating: ${m.rating || "No rating"}`);
-          console.log(`   Chapters: ${m.latestChapters?.map((c: any) => `Ch ${c.number}`).join(", ") || "No chapters"}`);
-        });
-      }
 
       setManhwaList(topManhwaList);
       setError(null)
@@ -122,16 +106,35 @@ export default function Home() {
 
   const fetchRecommended = async (type: string = "Manhwa") => {
     try {
-      console.log("🎯 Fetching recommended manhwa...", type);
       setLoadingRecommended(true);
 
-      // Fetch more recommended manhwa to ensure we have enough after filtering
+      // Fetch recommended manhwa
       const response = await fetch("/api/komiku/recommend?limit=100");
       const data = await response.json();
 
       if (data.success) {
-        // Filter by type
-        const filtered = data.data.manhwa.filter((m: Manhwa) => m.type?.toLowerCase() === type.toLowerCase());
+        // Debug: Check first 10 items with their exact type values
+        console.log('First 10 items from API:', data.data.manhwa.slice(0, 10).map((m: Manhwa) => ({
+          title: m.title,
+          type: m.type,
+          typeLength: m.type?.length,
+          typeTrimmed: m.type?.trim(),
+          typeLower: m.type?.toLowerCase().trim()
+        })));
+        
+        // Filter by type (case-insensitive, exact match with trim)
+        const filtered = data.data.manhwa.filter((m: Manhwa) => {
+          const manhwaType = (m.type?.toLowerCase() || '').trim();
+          const targetType = type.toLowerCase().trim();
+          return manhwaType === targetType;
+        });
+        
+        console.log(`Filtering for "${type}": Found ${filtered.length} items out of ${data.data.manhwa.length} total`);
+        
+        // Debug first 5 items if needed
+        if (filtered.length > 0 && filtered.length < 10) {
+          console.log(`First ${filtered.length} ${type} items:`, filtered.map(m => m.title));
+        }
 
         // Fisher-Yates shuffle for random selection
         const shuffled = [...filtered];
@@ -140,28 +143,14 @@ export default function Home() {
           [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
 
-        let randomManhwa = shuffled.slice(0, 6);
-
-        // If we don't have enough of the selected type, add from other types
-        if (randomManhwa.length < 6) {
-          const otherTypes = data.data.manhwa.filter((m: Manhwa) => m.type?.toLowerCase() !== type.toLowerCase());
-          const otherShuffled = [...otherTypes];
-          for (let i = otherShuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [otherShuffled[i], otherShuffled[j]] = [otherShuffled[j], otherShuffled[i]];
-          }
-          
-          // Add enough from other types to reach 6 total
-          const needed = 6 - randomManhwa.length;
-          randomManhwa = [...randomManhwa, ...otherShuffled.slice(0, needed)];
-        }
-
-        console.log("✅ Recommended manhwa loaded:", randomManhwa.length, "Type:", type, "Available:", filtered.length);
+        // Take up to 6 items from the selected type only
+        const randomManhwa = shuffled.slice(0, Math.min(6, shuffled.length));
+        
         setRecommendedList(randomManhwa);
       }
     } catch (error) {
-      console.error("❌ Error fetching recommended manhwa:", error);
-      // Don't show error for recommended list, just keep it empty
+      console.error("Error fetching recommended manhwa:", error);
+      setRecommendedList([]);
     } finally {
       setLoadingRecommended(false);
     }
@@ -270,12 +259,12 @@ export default function Home() {
                     </div>
                     Update Terbaru
                   </h2>
-                  <a href="/update-terbaru" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary-900/30 flex items-center gap-2">
+                  <Link href="/pencarian?sort=latest" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary-900/30 flex items-center gap-2">
                     Lihat Semua
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                  </a>
+                  </Link>
                 </div>
               </div>
 
