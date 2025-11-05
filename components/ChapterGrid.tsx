@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { Chapter } from '@/types'
-import DownloadChapterButtonSmall from './DownloadChapterButtonSmall'
 import FloatingDownloadBar from './FloatingDownloadBar'
 
 interface ChapterGridProps {
@@ -18,7 +17,6 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set())
   const [isDownloadingMultiple, setIsDownloadingMultiple] = useState(false)
-  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<{
     percent: number
     loadedMB: number
@@ -27,6 +25,8 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     totalFiles: number
   } | undefined>(undefined)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const [chaptersWithImages, setChaptersWithImages] = useState<Set<string>>(new Set())
+  const [isCheckingImages, setIsCheckingImages] = useState(false)
   const itemsPerPage = 50
   
   // Sort and filter chapters
@@ -102,18 +102,38 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     setCurrentPage(1)
   }
 
-  // Disable pointer events and body scroll when modal is open
-  useEffect(() => {
-    const chapterList = document.querySelector('.chapter-grid-container')
-    if (chapterList) {
-      (chapterList as HTMLElement).style.pointerEvents = isAnyModalOpen ? 'none' : 'auto'
-    }
-    document.body.style.overflow = isAnyModalOpen ? 'hidden' : 'auto'
+
+  // Check which chapters have images
+  const checkChaptersWithImages = async () => {
+    if (isCheckingImages) return
     
-    return () => {
-      document.body.style.overflow = 'auto'
+    setIsCheckingImages(true)
+    const chaptersWithImagesSet = new Set<string>()
+    
+    // Check chapters in batches
+    const batchSize = 10
+    for (let i = 0; i < currentChapters.length; i += batchSize) {
+      const batch = currentChapters.slice(i, i + batchSize)
+      
+      await Promise.all(
+        batch.map(async (chapter) => {
+          try {
+            const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapter.number}`)
+            const data = await response.json()
+            
+            if (data.success && data.data.chapter?.images?.length > 0) {
+              chaptersWithImagesSet.add(chapter.number?.toString() || '')
+            }
+          } catch (error) {
+            console.error(`Error checking chapter ${chapter.number}:`, error)
+          }
+        })
+      )
     }
-  }, [isAnyModalOpen])
+    
+    setChaptersWithImages(chaptersWithImagesSet)
+    setIsCheckingImages(false)
+  }
 
   // Multi-select handlers
   const toggleChapterSelection = (chapterNumber: string) => {
@@ -129,6 +149,11 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
   const selectAll = () => {
     const allNumbers = new Set(currentChapters.map(ch => ch.number?.toString() || ''))
     setSelectedChapters(allNumbers)
+    
+    // Check images if not already checked
+    if (chaptersWithImages.size === 0) {
+      checkChaptersWithImages()
+    }
   }
 
   const clearSelection = () => {
@@ -157,8 +182,21 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
       
       clearSelection()
     } catch (error) {
-      if (error instanceof Error && error.message === 'Download dihentikan oleh pengguna') {
-        console.log('Download stopped by user')
+      if (error instanceof Error) {
+        // User cancelled download
+        if (error.message === 'Download dihentikan oleh pengguna' || error.message === 'Download dibatalkan oleh user') {
+          console.log('Download cancelled by user')
+        } 
+        // All chapters failed or specific error message
+        else if (error.message.includes('❌') || error.message.includes('Semua chapter gagal')) {
+          console.error('Multi-download error:', error)
+          alert(error.message) // Show the detailed error message
+        }
+        // Generic error
+        else {
+          console.error('Multi-download error:', error)
+          alert('Gagal mengunduh chapter. Silakan coba lagi.')
+        }
       } else {
         console.error('Multi-download error:', error)
         alert('Gagal mengunduh chapter. Silakan coba lagi.')
@@ -198,14 +236,14 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     }
     
     if (!data.success || !data.data.chapter) {
-      throw new Error('Failed to fetch chapter data')
+      throw new Error(`❌ Gagal memuat data chapter ${chapterNumber}.\n\nSilakan coba lagi.`)
     }
     
     const chapter = data.data.chapter
     const images = chapter.images || []
     
     if (images.length === 0) {
-      throw new Error('Chapter tidak memiliki gambar')
+      throw new Error(`❌ Chapter ${chapterNumber} tidak memiliki gambar.\n\nChapter ini mungkin belum tersedia atau rusak.`)
     }
     
     const proxiedImages = images.map((img: any) => {
@@ -280,14 +318,16 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
           }
           
           if (!data.success || !data.data.chapter) {
-            throw new Error('Failed to fetch chapter data')
+            console.error(`Chapter ${chapterNumber}: Failed to fetch data`)
+            throw new Error(`Failed to fetch chapter ${chapterNumber}`)
           }
           
           const chapter = data.data.chapter
           const images = chapter.images || []
           
           if (images.length === 0) {
-            throw new Error('Chapter tidak memiliki gambar')
+            console.error(`Chapter ${chapterNumber}: No images found`)
+            throw new Error(`Chapter ${chapterNumber} has no images`)
           }
           
           const proxiedImages = images.map((img: any) => {
@@ -352,6 +392,41 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     
     const processingTime = Date.now() - startTime
     console.log(`✅ Parallel chapter processing completed in ${processingTime}ms`)
+    
+    // Check if some chapters failed
+    const successCount = results.length
+    const failedChapterCount = chapterNumbers.length - successCount
+    
+    // If ALL chapters failed, don't create ZIP
+    if (successCount === 0) {
+      throw new Error(
+        `❌ Semua chapter gagal diproses!\n\n` +
+        `${failedChapterCount} dari ${chapterNumbers.length} chapter tidak dapat diunduh.\n\n` +
+        `Kemungkinan penyebab:\n` +
+        `• Koneksi internet tidak stabil\n` +
+        `• Server sedang down\n` +
+        `• Chapter tidak memiliki gambar\n\n` +
+        `Silakan coba lagi nanti.`
+      )
+    }
+    
+    if (failedChapterCount > 0) {
+      console.warn(`⚠️ ${failedChapterCount}/${chapterNumbers.length} chapter gagal diproses`)
+      
+      // Show warning if significant failures (but not all)
+      if (failedChapterCount > chapterNumbers.length * 0.3) {
+        const shouldContinue = confirm(
+          `⚠️ PERINGATAN DOWNLOAD\n\n` +
+          `${failedChapterCount} dari ${chapterNumbers.length} chapter gagal diproses.\n\n` +
+          `ZIP akan berisi ${successCount} chapter yang berhasil.\n\n` +
+          `Lanjutkan download?`
+        )
+        
+        if (!shouldContinue) {
+          throw new Error('Download dibatalkan oleh user')
+        }
+      }
+    }
     
     // Add all successful PDFs to ZIP
     results.forEach(({ chapterNumber, pdfBlob }) => {
@@ -500,25 +575,54 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
 
         {/* Results Info and Multi-Select Controls */}
         <div className="flex items-center justify-between text-sm flex-wrap gap-3">
-          <p className="text-slate-400">
-            Menampilkan <span className="font-semibold text-white">{currentChapters.length}</span> dari <span className="font-semibold text-white">{processedChapters.length}</span> chapter
-            {selectedChapters.size > 0 && (
-              <span className="ml-2 px-2 py-1 bg-primary-600 text-white text-xs rounded-full font-semibold">
-                {selectedChapters.size} terpilih
-              </span>
+          <div className="flex flex-col gap-1">
+            <p className="text-slate-400">
+              Menampilkan <span className="font-semibold text-white">{currentChapters.length}</span> dari <span className="font-semibold text-white">{processedChapters.length}</span> chapter
+              {selectedChapters.size > 0 && (
+                <span className="ml-2 px-2 py-1 bg-primary-600 text-white text-xs rounded-full font-semibold">
+                  {selectedChapters.size} terpilih
+                </span>
+              )}
+            </p>
+            {/* Show image info when checking or after checked */}
+            {(isCheckingImages || chaptersWithImages.size > 0) && selectedChapters.size > 0 && (
+              <p className="text-xs text-slate-500">
+                {isCheckingImages ? (
+                  <span className="flex items-center gap-1">
+                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Memeriksa chapter...
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-green-400 font-semibold">{chaptersWithImages.size} chapter</span> ada gambar, 
+                    <span className="text-red-400 font-semibold ml-1">{currentChapters.length - chaptersWithImages.size} chapter</span> tidak ada gambar
+                  </>
+                )}
+              </p>
             )}
-          </p>
+          </div>
           <div className="flex items-center gap-2">
             {selectedChapters.size > 0 && (
               <>
                 {selectedChapters.size < currentChapters.length && (
                   <button
                     onClick={selectAll}
-                    className="px-3 py-1.5 text-xs bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center gap-1 font-medium"
+                    disabled={isCheckingImages}
+                    className="px-3 py-1.5 text-xs bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center gap-1 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    {isCheckingImages ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
                     Pilih Semua
                   </button>
                 )}
@@ -600,19 +704,6 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
                         </div>
                       </label>
                     </div>
-
-                    {/* Download Button - Only show on hover for desktop, hidden on mobile when checkbox visible */}
-                    {manhwaTitle && (
-                      <div className="absolute top-2 left-2 z-10 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                        <DownloadChapterButtonSmall
-                          manhwaSlug={manhwaSlug}
-                          manhwaTitle={manhwaTitle}
-                          chapterNumber={chapter.number?.toString() || ''}
-                          chapterTitle={chapter.title}
-                          onModalStateChange={setIsAnyModalOpen}
-                        />
-                      </div>
-                    )}
                     
                     {/* Chapter Link - Clickable area */}
                     <Link

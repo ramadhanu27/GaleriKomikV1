@@ -201,11 +201,36 @@ export async function generateChapterPDF(
 
     // Check if we got any valid images
     const validImages = base64Images.filter(img => img !== '')
+    const failedCount = images.length - validImages.length
+    
     if (validImages.length === 0) {
-      throw new Error('Tidak ada gambar yang berhasil dimuat. Pastikan koneksi internet Anda stabil.')
+      throw new Error('❌ Semua gambar gagal dimuat!\n\nPastikan:\n• Koneksi internet stabil\n• Server tidak down\n• Coba lagi beberapa saat')
     }
     
-    console.log(`Successfully loaded ${validImages.length} out of ${images.length} images`)
+    // Warn user if some images failed
+    if (failedCount > 0) {
+      const failureRate = (failedCount / images.length * 100).toFixed(0)
+      console.warn(`⚠️ ${failedCount}/${images.length} gambar gagal dimuat (${failureRate}%)`)
+      
+      // Show warning if failure rate is significant (>20%)
+      if (failedCount > images.length * 0.2) {
+        const shouldContinue = confirm(
+          `⚠️ PERINGATAN DOWNLOAD\n\n` +
+          `${failedCount} dari ${images.length} gambar gagal dimuat (${failureRate}%).\n\n` +
+          `PDF akan dibuat dengan ${validImages.length} gambar yang berhasil.\n\n` +
+          `Lanjutkan download?`
+        )
+        
+        if (!shouldContinue) {
+          throw new Error('Download dibatalkan oleh user')
+        }
+      } else {
+        // Just show a toast-like alert for minor failures
+        console.log(`ℹ️ ${failedCount} gambar gagal, melanjutkan dengan ${validImages.length} gambar`)
+      }
+    }
+    
+    console.log(`✅ Successfully loaded ${validImages.length} out of ${images.length} images`)
 
     if (onProgress) {
       onProgress(images.length, images.length, 'Membuat PDF...')
@@ -296,11 +321,19 @@ export async function generateChapterPDFBlob(
     
     // Check if we got any valid images
     const validImages = base64Images.filter(img => img !== '')
+    const failedCount = images.length - validImages.length
+    
     if (validImages.length === 0) {
-      throw new Error('Tidak ada gambar yang berhasil dimuat. Pastikan koneksi internet Anda stabil.')
+      throw new Error('❌ Semua gambar gagal dimuat!\n\nPastikan:\n• Koneksi internet stabil\n• Server tidak down\n• Coba lagi beberapa saat')
     }
     
-    console.log(`Successfully loaded ${validImages.length} out of ${images.length} images`)
+    // Warn user if some images failed (for Blob generation, no confirm dialog)
+    if (failedCount > 0) {
+      const failureRate = (failedCount / images.length * 100).toFixed(0)
+      console.warn(`⚠️ Chapter ${chapterNumber}: ${failedCount}/${images.length} gambar gagal dimuat (${failureRate}%)`)
+    }
+    
+    console.log(`✅ Chapter ${chapterNumber}: Successfully loaded ${validImages.length} out of ${images.length} images`)
 
     if (onProgress) {
       onProgress(images.length, images.length, 'Membuat PDF...')
@@ -406,11 +439,25 @@ export async function openChapterPDF(
     }
     
     const validImages = base64Images.filter(img => img !== '')
+    const failedCount = images.length - validImages.length
+    
     if (validImages.length === 0) {
-      throw new Error('Tidak ada gambar yang berhasil dimuat. Pastikan koneksi internet Anda stabil.')
+      throw new Error('❌ Semua gambar gagal dimuat!\n\nPastikan:\n• Koneksi internet stabil\n• Server tidak down\n• Coba lagi beberapa saat')
     }
     
-    console.log(`Successfully loaded ${validImages.length} out of ${images.length} images`)
+    // Warn user if some images failed
+    if (failedCount > 0) {
+      const failureRate = (failedCount / images.length * 100).toFixed(0)
+      console.warn(`⚠️ ${failedCount}/${images.length} gambar gagal dimuat (${failureRate}%)`)
+      
+      alert(
+        `⚠️ PERINGATAN\n\n` +
+        `${failedCount} dari ${images.length} gambar gagal dimuat.\n\n` +
+        `PDF akan dibuka dengan ${validImages.length} gambar yang berhasil.`
+      )
+    }
+    
+    console.log(`✅ Successfully loaded ${validImages.length} out of ${images.length} images`)
 
     if (onProgress) {
       onProgress(images.length, images.length, 'Membuat PDF...')
