@@ -133,7 +133,7 @@ export default function Home() {
         
         // Debug first 5 items if needed
         if (filtered.length > 0 && filtered.length < 10) {
-          console.log(`First ${filtered.length} ${type} items:`, filtered.map(m => m.title));
+          console.log(`First ${filtered.length} ${type} items:`, filtered.map((m: Manhwa) => m.title));
         }
 
         // Fisher-Yates shuffle for random selection
