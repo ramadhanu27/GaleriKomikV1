@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_BUCKET = 'komiku-data'
 
-// Enable edge caching for 30 minutes (1800 seconds)
-export const revalidate = 1800
+// Enable edge caching for 5 minutes (300 seconds)
+export const revalidate = 300
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,7 +47,10 @@ export async function GET(request: NextRequest) {
           .from(SUPABASE_BUCKET)
           .getPublicUrl(path)
 
-        const response = await fetch(urlData.publicUrl, {
+        // Add timestamp to bypass CDN cache
+        const urlWithTimestamp = `${urlData.publicUrl}?t=${Date.now()}`
+
+        const response = await fetch(urlWithTimestamp, {
           cache: 'no-store', // Disable cache for large files (>2MB)
           headers: { 'User-Agent': 'Mozilla/5.0' },
         })

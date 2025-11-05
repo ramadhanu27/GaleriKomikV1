@@ -88,31 +88,37 @@ export const secureStorage = {
 /**
  * Obfuscate sensitive keys in DevTools
  * This makes it harder (but not impossible) to read tokens
+ * NOTE: This is now handled by the inline script in layout.tsx for better security
  */
 export function obfuscateStorageKeys() {
   if (typeof window === 'undefined') return
   
-  // Override localStorage methods to hide sensitive data in console
-  const originalGetItem = Storage.prototype.getItem
-  const originalSetItem = Storage.prototype.setItem
+  console.log('🔒 Storage obfuscation is handled by inline security script')
   
-  Storage.prototype.getItem = function(key: string) {
-    const value = originalGetItem.call(this, key)
-    
-    // Don't log sensitive keys
-    if (key.includes('auth') || key.includes('token') || key.includes('sb-')) {
-      return value
-    }
-    
-    return value
-  }
+  // Additional runtime protection
+  const sensitivePatterns = [
+    'arkomik-auth',
+    'arkomik-aut',
+    'sb-',
+    'supabase',
+    'auth-token',
+    'access-token',
+    'refresh-token',
+  ]
   
-  Storage.prototype.setItem = function(key: string, value: string) {
-    // Don't log sensitive keys
-    if (key.includes('auth') || key.includes('token') || key.includes('sb-')) {
-      return originalSetItem.call(this, key, value)
+  // Hide sensitive keys from Object.keys() and Object.entries()
+  try {
+    const originalKeys = Object.keys
+    Object.keys = function(obj: any) {
+      const keys = originalKeys(obj)
+      if (obj === localStorage) {
+        return keys.filter(key => {
+          return !sensitivePatterns.some(pattern => key.includes(pattern))
+        })
+      }
+      return keys
     }
-    
-    return originalSetItem.call(this, key, value)
+  } catch (error) {
+    console.error('Failed to obfuscate Object.keys:', error)
   }
 }

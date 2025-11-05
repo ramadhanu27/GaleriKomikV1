@@ -17,7 +17,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isRandomized, setIsRandomized] = useState(false);
-  const itemsPerPage = 15;
+  const itemsPerPage = 20; // Increased from 15 to show more items per page
 
   useEffect(() => {
     fetchManhwa();
@@ -26,12 +26,13 @@ export default function Home() {
 
   const fetchManhwa = async () => {
     try {
-      console.log("📥 Fetching manhwa from batch-latest-chapters API...");
+      console.log("📥 Fetching manhwa list from metadata...");
 
-      // Step 1: Get metadata for rating and initial sorting
+      // Use list-from-files which already includes latestChapters (3 chapters)
+      // This is much faster than batch API for homepage
       const listData = await fetchWithCache(
-        "/api/komiku/list-from-files?limit=200",
-        5 * 60 * 1000 // 5 minutes
+        "/api/komiku/list-from-files?limit=500",
+        2 * 60 * 1000 // 2 minutes
       );
 
       if (!listData.success) {
@@ -39,103 +40,78 @@ export default function Home() {
         return;
       }
 
-      // Get slugs from metadata
-      const metadataList = listData.data.manhwa;
-      const slugs = metadataList.map((m: any) => m.slug);
-      
-      console.log(`✅ Got ${slugs.length} slugs, fetching full data from batch API...`);
+      const manhwaList = listData.data.manhwa;
+      console.log(`✅ Loaded ${manhwaList.length} manhwa from metadata`);
 
-      // Step 2: Fetch full data with chapters from batch API
-      const chaptersResponse = await fetch("/api/komiku/batch-latest-chapters", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slugs }),
-      });
-
-      if (!chaptersResponse.ok) {
-        console.error("Failed to fetch from batch API");
-        setError("Failed to load manhwa data");
-        return;
-      }
-
-      const chaptersData = await chaptersResponse.json();
-
-      if (chaptersData.success) {
-        const batchManhwaList = chaptersData.data.chapters;
-        
-        console.log(`✅ Loaded ${batchManhwaList.length} manhwa with full data from batch API`);
-
-        // Create metadata map for quick lookup (for rating)
-        const metadataMap = new Map(
-          metadataList.map((m: any) => [m.slug, m])
-        );
-
-        // Helper function to parse date DD/MM/YYYY to timestamp
-        const parseDate = (dateStr: string): number => {
-          if (!dateStr) return 0;
-          try {
-            const [day, month, year] = dateStr.split('/');
-            return new Date(`${year}-${month}-${day}`).getTime();
-          } catch {
+      // Helper function to parse date DD/MM/YYYY to timestamp
+      const parseDate = (dateStr: string): number => {
+        if (!dateStr) return 0;
+        try {
+          const parts = dateStr.split('/');
+          if (parts.length !== 3) return 0;
+          
+          const [day, month, year] = parts;
+          const date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+          
+          // Validate date
+          if (isNaN(date.getTime())) {
             return 0;
           }
-        };
-
-        // Merge data and add latest chapter date
-        const mergedManhwaList = batchManhwaList.map((m: any) => {
-          const metadata = metadataMap.get(m.slug) as any;
           
-          // Get latest chapter date
-          const latestChapterDate = m.latestChapters?.[0]?.date || null;
-          const latestChapterTimestamp = latestChapterDate ? parseDate(latestChapterDate) : 0;
-
-          return {
-            slug: m.slug,
-            title: m.manhwaTitle,
-            manhwaTitle: m.manhwaTitle,
-            alternativeTitle: m.alternativeTitle,
-            image: m.image,
-            author: m.author,
-            type: m.type,
-            status: m.status,
-            released: m.released,
-            genres: m.genres,
-            synopsis: m.synopsis,
-            totalChapters: m.totalChapters,
-            scrapedAt: m.scrapedAt,
-            lastModified: m.scrapedAt,
-            latestChapters: m.latestChapters,
-            rating: metadata?.rating || null, // ✅ Merge rating from metadata
-            latestChapterDate: latestChapterDate,
-            latestChapterTimestamp: latestChapterTimestamp,
-          };
-        });
-
-        // Sort by latest chapter date (newest first)
-        const sortedManhwaList = mergedManhwaList.sort((a: any, b: any) => {
-          return b.latestChapterTimestamp - a.latestChapterTimestamp;
-        });
-
-        // Take top 30
-        const topManhwaList = sortedManhwaList.slice(0, 30);
-
-        // Debug: Log top 5 manhwa
-        if (process.env.NODE_ENV === "development") {
-          console.log("Top 5 manhwa sorted by latest chapter date:");
-          topManhwaList.slice(0, 5).forEach((m: any, i: number) => {
-            console.log(`${i + 1}. ${m.manhwaTitle}`);
-            console.log(`   Latest Chapter: ${m.latestChapterDate || "No date"}`);
-            console.log(`   Rating: ${m.rating || "No rating"}`);
-            console.log(`   Chapters: ${m.latestChapters?.map((c: any) => `Ch ${c.number}`).join(", ") || "No chapters"}`);
-          });
+          return date.getTime();
+        } catch (error) {
+          return 0;
         }
+      };
 
-        setManhwaList(topManhwaList);
-        setError(null);
+      // Add timestamp for sorting
+      const manhwaWithTimestamp = manhwaList.map((m: any) => {
+        const latestChapterDate = m.latestChapters?.[0]?.date || null;
+        const latestChapterTimestamp = latestChapterDate ? parseDate(latestChapterDate) : 0;
+
+        return {
+          ...m,
+          latestChapterDate,
+          latestChapterTimestamp,
+        };
+      });
+
+      // Sort by latest chapter date (newest first)
+      const sortedManhwaList = manhwaWithTimestamp.sort((a: any, b: any) => {
+        return b.latestChapterTimestamp - a.latestChapterTimestamp;
+      });
+
+      // Check position of rankers-return-remake
+      const rankersIndex = sortedManhwaList.findIndex((m: any) => m.slug === 'rankers-return-remake');
+      if (rankersIndex !== -1) {
+        const rankers = sortedManhwaList[rankersIndex];
+        console.log(`🔍 Rankers Return Remake position: #${rankersIndex + 1} of ${sortedManhwaList.length}`);
+        console.log(`   Latest Chapter: ${rankers.latestChapterDate}`);
+        console.log(`   Timestamp: ${rankers.latestChapterTimestamp}`);
+        console.log(`   Date Object: ${new Date(rankers.latestChapterTimestamp).toISOString()}`);
+        console.log(`   Chapters:`, rankers.latestChapters);
+        console.log(`   ${rankersIndex < 100 ? '✅ WILL BE SHOWN' : '❌ NOT IN TOP 100'}`);
       } else {
-        console.error("Batch API returned error:", chaptersData.error);
-        setError(chaptersData.error || "Failed to load manhwa data");
+        console.log(`❌ Rankers Return Remake NOT FOUND in sorted list`);
       }
+
+      // Take top 100 for homepage display
+      const topManhwaList = sortedManhwaList.slice(0, 100);
+
+      // Debug: Log top 5 manhwa
+      if (process.env.NODE_ENV === "development") {
+        console.log("Top 5 manhwa sorted by latest chapter date:");
+        topManhwaList.slice(0, 5).forEach((m: any, i: number) => {
+          console.log(`${i + 1}. ${m.manhwaTitle || m.title}`);
+          console.log(`   Latest Chapter: ${m.latestChapterDate || "No date"}`);
+          console.log(`   Timestamp: ${m.latestChapterTimestamp}`);
+          console.log(`   Rating: ${m.rating || "No rating"}`);
+          console.log(`   Chapters: ${m.latestChapters?.map((c: any) => `Ch ${c.number}`).join(", ") || "No chapters"}`);
+        });
+      }
+
+      setManhwaList(topManhwaList);
+      setError(null)
     } catch (error) {
       console.error("Error fetching manhwa:", error);
       setError(error instanceof Error ? error.message : "Gagal memuat data. Silakan coba lagi.");
@@ -294,7 +270,7 @@ export default function Home() {
                     </div>
                     Update Terbaru
                   </h2>
-                  <a href="/pencarian" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary-900/30 flex items-center gap-2">
+                  <a href="/update-terbaru" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary-900/30 flex items-center gap-2">
                     Lihat Semua
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

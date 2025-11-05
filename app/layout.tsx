@@ -157,6 +157,74 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             `,
           }}
         />
+        
+        {/* Security: Hide sensitive data from DevTools */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  // Hide sensitive cookies
+                  const originalCookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+                  if (originalCookieDescriptor) {
+                    const originalGetter = originalCookieDescriptor.get;
+                    Object.defineProperty(document, 'cookie', {
+                      get: function() {
+                        if (!originalGetter) return '';
+                        const cookies = originalGetter.call(document);
+                        return cookies.split('; ').filter(function(cookie) {
+                          const name = cookie.split('=')[0];
+                          return !name.includes('arkomik-aut') && !name.includes('sb-') && 
+                                 !name.includes('auth-token') && !name.includes('access-token');
+                        }).join('; ');
+                      },
+                      set: originalCookieDescriptor.set,
+                      configurable: true
+                    });
+                  }
+                  
+                  // Hide sensitive localStorage keys
+                  const sensitivePatterns = ['arkomik-auth', 'sb-', 'supabase', 'auth-token', 'access-token', 'refresh-token'];
+                  const originalGetItem = Storage.prototype.getItem;
+                  const originalKey = Storage.prototype.key;
+                  
+                  function isSensitive(key) {
+                    return sensitivePatterns.some(function(p) { return key.includes(p); });
+                  }
+                  
+                  Storage.prototype.getItem = function(key) {
+                    const value = originalGetItem.call(this, key);
+                    if (isSensitive(key)) {
+                      const stack = new Error().stack || '';
+                      if (stack.includes('devtools') || stack.includes('console')) {
+                        return null;
+                      }
+                    }
+                    return value;
+                  };
+                  
+                  Storage.prototype.key = function(index) {
+                    let currentIndex = 0;
+                    let actualIndex = 0;
+                    while (actualIndex < localStorage.length) {
+                      const key = originalKey.call(this, actualIndex);
+                      if (key && !isSensitive(key)) {
+                        if (currentIndex === index) return key;
+                        currentIndex++;
+                      }
+                      actualIndex++;
+                    }
+                    return null;
+                  };
+                  
+                  console.log('🔒 Security protection enabled');
+                } catch (e) {
+                  console.error('Security init failed:', e);
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={inter.className}>
         {/* Google Tag Manager (noscript) */}

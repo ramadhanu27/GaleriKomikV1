@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_BUCKET = 'komiku-data'
 
-// Enable edge caching for 30 minutes (1800 seconds)
-export const revalidate = 1800
+// Enable edge caching for 5 minutes (300 seconds)
+export const revalidate = 300
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +46,10 @@ export async function POST(request: NextRequest) {
               .from(SUPABASE_BUCKET)
               .getPublicUrl(path)
 
-            const response = await fetch(urlData.publicUrl, {
+            // Add timestamp to bypass CDN cache
+            const urlWithTimestamp = `${urlData.publicUrl}?t=${Date.now()}`
+
+            const response = await fetch(urlWithTimestamp, {
               cache: 'no-store', // Disable cache for large files (>2MB)
               headers: { 'User-Agent': 'Mozilla/5.0' },
             })
@@ -54,6 +57,25 @@ export async function POST(request: NextRequest) {
             if (response.ok) {
               const chapterData = await response.json()
               const chapters = chapterData.chapters || []
+              
+              // Get latest 2 chapters
+              const latestChapters = chapters
+                .slice(-2)
+                .reverse()
+                .map((ch: any) => ({
+                  number: ch.number,
+                  title: ch.title,
+                  url: ch.url,
+                  date: ch.date,
+                }))
+              
+              // Debug logging for specific manhwa
+              if (slug === 'rankers-return-remake') {
+                console.log(`🔍 Debug ${slug}:`)
+                console.log(`   Total chapters in JSON: ${chapters.length}`)
+                console.log(`   ScrapedAt: ${chapterData.scrapedAt}`)
+                console.log(`   Last 2 chapters:`, latestChapters)
+              }
               
               return {
                 slug: chapterData.slug || slug,
@@ -69,15 +91,7 @@ export async function POST(request: NextRequest) {
                 synopsis: chapterData.synopsis || null,
                 totalChapters: chapterData.totalChapters || chapters.length,
                 scrapedAt: chapterData.scrapedAt || null,
-                latestChapters: chapters
-                  .slice(-2)
-                  .reverse()
-                  .map((ch: any) => ({
-                    number: ch.number,
-                    title: ch.title,
-                    url: ch.url,
-                    date: ch.date,
-                  })),
+                latestChapters,
               }
             }
           } catch (err) {
@@ -94,6 +108,16 @@ export async function POST(request: NextRequest) {
     const data = results
       .filter((result) => result.status === 'fulfilled' && result.value !== null)
       .map((result: any) => result.value)
+
+    // Log failed slugs for debugging
+    const failedSlugs = results
+      .map((result, index) => ({ result, slug: slugs[index] }))
+      .filter(({ result }) => result.status === 'rejected' || result.value === null)
+      .map(({ slug }) => slug)
+    
+    if (failedSlugs.length > 0) {
+      console.log(`❌ Failed to fetch ${failedSlugs.length} manhwa:`, failedSlugs.slice(0, 10))
+    }
 
     console.log(`✅ Successfully fetched ${data.length}/${slugs.length} manhwa chapters`)
 
