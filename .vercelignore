@@ -1,4 +1,0 @@
-# Vercel ignore file
-.next/cache
-.vercel
-node_modules

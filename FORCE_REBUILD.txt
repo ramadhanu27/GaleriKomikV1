@@ -1,0 +1,2 @@
+Force rebuild timestamp: 2025-11-06 14:44:00
+This file forces Vercel to do a fresh build without cache.
