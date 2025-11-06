@@ -7,7 +7,7 @@ const SUPABASE_BUCKET = 'komiku-data'
 export const dynamic = 'force-dynamic'
 
 // Enable edge caching for 1 hour (3600 seconds)
-export const revalidate = 3600
+export const revalidate = 0
 
 // Increase max duration for Vercel (60s for Pro, 10s for Hobby)
 export const maxDuration = 60
@@ -32,8 +32,9 @@ export async function GET(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey)
     const { searchParams } = new URL(request.url)
-    // Increased default limit for testing
-    const limit = parseInt(searchParams.get('limit') || '100', 10)
+    // No limit by default - return all data
+    const requestedLimit = parseInt(searchParams.get('limit') || '0', 10)
+    const limit = requestedLimit || Number.MAX_SAFE_INTEGER
 
     // Check cache first
     const now = Date.now()
@@ -83,6 +84,10 @@ export async function GET(request: NextRequest) {
           total: result.length,
           cached: true,
         },
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        }
       })
     }
 
@@ -290,6 +295,10 @@ export async function GET(request: NextRequest) {
         manhwa: result,
         total: result.length,
       },
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      }
     })
   } catch (error) {
     console.error('❌ Error in /api/komiku/latest:', error)

@@ -6,9 +6,8 @@ const SUPABASE_BUCKET = 'komiku-data'
 // Force dynamic rendering (required for request.url usage)
 export const dynamic = 'force-dynamic'
 
-// Enable edge caching for 30 minutes (1800 seconds)
-// Shorter cache for search to keep results relatively fresh
-export const revalidate = 1800
+// Disable edge caching to prevent stale data
+export const revalidate = 0
 
 // Increase max duration for Vercel (60s for Pro, 10s for Hobby)
 export const maxDuration = 60
@@ -217,6 +216,10 @@ export async function GET(request: NextRequest) {
         manhwa: formattedList,
         total: formattedList.length,
       },
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      }
     })
   } catch (error) {
     console.error('Error in search API route:', error)
