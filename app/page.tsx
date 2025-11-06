@@ -29,8 +29,14 @@ export default function Home() {
 
       // Use list-from-files which already includes latestChapters (3 chapters)
       // This is much faster than batch API for homepage
-      // Direct fetch to bypass both client and edge cache
-      const response = await fetch(`/api/komiku/list-from-files?limit=500`)
+      // Direct fetch with cache busting to bypass all caching layers
+      const response = await fetch(`/api/komiku/list-from-files?limit=500&_=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        }
+      })
       const listData = await response.json()
 
       if (!listData.success) {

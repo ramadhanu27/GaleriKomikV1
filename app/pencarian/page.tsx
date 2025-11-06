@@ -79,9 +79,14 @@ function SearchContent() {
       setLoading(true)
       setError(null)
       // Use search API - metadata.json already has all data
-      // Add timestamp to bypass Vercel edge cache
-      const timestamp = Date.now()
-      const response = await fetch(`/api/komiku/search?_t=${timestamp}`)
+      // Add cache busting to bypass all caching layers
+      const response = await fetch(`/api/komiku/search?_=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        }
+      })
       const data = await response.json()
       
       if (data.success) {
