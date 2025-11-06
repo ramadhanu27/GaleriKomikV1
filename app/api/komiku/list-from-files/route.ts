@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
       
       const limited = sorted.slice(0, limit)
       
+      // Check how many have chapters
+      const withChapters = limited.filter((m: any) => m.chapters && m.chapters.length > 0)
+      console.log(`📊 ${withChapters.length}/${limited.length} cached manhwa have chapters`)
+      
       const result = limited.map((m: any) => ({
         slug: m.slug,
         title: m.manhwaTitle || m.title,
@@ -204,11 +208,27 @@ export async function GET(request: NextRequest) {
     console.log(`📊 Total manhwa in metadata.json: ${allManhwa.length}`)
     console.log(`📊 After sorting: ${sorted.length}`)
     console.log(`📊 After limit (${limit}): ${limited.length}`)
+    
+    // Check how many have chapters
+    const withChapters = limited.filter((m: any) => m.chapters && m.chapters.length > 0)
+    console.log(`📊 ${withChapters.length}/${limited.length} manhwa have chapters in metadata`)
 
     // Format hasil dengan field penting saja
-    const result = limited.map((m: any) => {
+    const result = limited.map((m: any, index: number) => {
       // Use lastTwoChapters from metadata if available, otherwise generate from chapters
       let lastTwoChapters = m.lastTwoChapters || []
+      
+      // Debug first item
+      if (index === 0) {
+        console.log(`🔍 First manhwa debug:`, {
+          slug: m.slug,
+          hasLastTwoChapters: !!m.lastTwoChapters,
+          lastTwoChaptersLength: m.lastTwoChapters?.length || 0,
+          hasChapters: !!m.chapters,
+          chaptersLength: m.chapters?.length || 0,
+          chaptersType: Array.isArray(m.chapters) ? 'array' : typeof m.chapters
+        })
+      }
       
       // If metadata doesn't have lastTwoChapters, generate from chapters array
       if (lastTwoChapters.length === 0 && m.chapters && m.chapters.length > 0) {
@@ -220,6 +240,15 @@ export async function GET(request: NextRequest) {
             url: ch.url,
             date: ch.date,
           }))
+        
+        if (index === 0) {
+          console.log(`✅ Generated lastTwoChapters for ${m.slug}:`, lastTwoChapters)
+        }
+      }
+      
+      // Debug: Log if no chapters found
+      if (lastTwoChapters.length === 0) {
+        console.warn(`⚠️ No chapters found for: ${m.slug} (totalChapters: ${m.totalChapters || 0}, hasChapters: ${!!m.chapters}, chaptersLength: ${m.chapters?.length || 0})`)
       }
       
       // Normalize type to ensure consistency
