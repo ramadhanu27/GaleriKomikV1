@@ -43,13 +43,15 @@ export async function GET(request: NextRequest) {
 
     let manhwaList: any[] = []
     
-    // Check cache first
+    // Check cache first (DISABLED - CACHE_DURATION = 0)
     const now = Date.now()
+    console.log(`🔍 Cache check: cachedMetadata=${!!cachedMetadata}, age=${cachedMetadata ? Math.round((now - cacheTimestamp) / 1000) : 'N/A'}s, duration=${CACHE_DURATION}ms`)
+    
     if (cachedMetadata && (now - cacheTimestamp) < CACHE_DURATION) {
       console.log(`✅ Using cached metadata for search (${cachedMetadata.length} items)`)
       manhwaList = cachedMetadata
     } else {
-      console.log('📥 Fetching metadata.json for search...')
+      console.log('📥 Fetching metadata.json for search (cache disabled or expired)...')
       
       try {
         // Use metadata.json from metadata folder which contains full data
@@ -121,6 +123,7 @@ export async function GET(request: NextRequest) {
             
             manhwaList = JSON.parse(chunks)
             console.log(`✅ Parsed ${manhwaList.length} manhwa from metadata.json`)
+            console.log(`📊 First 3 items: ${manhwaList.slice(0, 3).map((m: any) => m.slug || m.title).join(', ')}`)
             
             // Cache the result
             cachedMetadata = manhwaList
@@ -152,13 +155,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    console.log(`📊 Before filtering: ${manhwaList.length} manhwa`)
+
     // Filter by search query
     if (search) {
       const searchLower = search.toLowerCase()
+      console.log(`🔍 Filtering by search: "${search}"`)
       manhwaList = manhwaList.filter((manhwa: any) =>
         manhwa.title?.toLowerCase().includes(searchLower) ||
         manhwa.manhwaTitle?.toLowerCase().includes(searchLower)
       )
+      console.log(`📊 After search filter: ${manhwaList.length} manhwa`)
     }
 
     // Filter by genre
