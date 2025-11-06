@@ -6,8 +6,6 @@ import ManhwaCard from "@/components/ManhwaCard";
 import HeroSlider from "@/components/HeroSlider";
 import AnnouncementBanner from "@/components/AnnouncementBanner";
 import { Manhwa } from "@/types";
-import { fetchWithCache } from "@/lib/cache";
-import { fetchWithRetry } from "@/lib/fetchWithRetry";
 
 export default function Home() {
   const [manhwaList, setManhwaList] = useState<Manhwa[]>([]);
@@ -31,12 +29,9 @@ export default function Home() {
 
       // Use list-from-files which already includes latestChapters (3 chapters)
       // This is much faster than batch API for homepage
-      // Add timestamp to bypass Vercel edge cache
-      const timestamp = Date.now()
-      const listData = await fetchWithCache(
-        `/api/komiku/list-from-files?limit=500&_t=${timestamp}`,
-        2 * 60 * 1000 // 2 minutes
-      );
+      // Direct fetch to bypass both client and edge cache
+      const response = await fetch(`/api/komiku/list-from-files?limit=500`)
+      const listData = await response.json()
 
       if (!listData.success) {
         setError(listData.error || "Failed to load manhwa list");
@@ -44,6 +39,9 @@ export default function Home() {
       }
 
       const manhwaList = listData.data.manhwa;
+      
+      console.log(`📊 Received ${manhwaList.length} manhwa from API`)
+      console.log(`📦 First 3 items:`, manhwaList.slice(0, 3).map((m: any) => ({ slug: m.slug, title: m.title })))
 
       // Helper function to parse date DD/MM/YYYY to timestamp
       const parseDate = (dateStr: string): number => {
@@ -92,9 +90,14 @@ export default function Home() {
       const sortedManhwaList = manhwaWithTimestamp.sort((a: any, b: any) => {
         return b.latestChapterTimestamp - a.latestChapterTimestamp;
       });
+      
+      console.log(`📊 After sorting: ${sortedManhwaList.length} manhwa`)
+      console.log(`📊 Items with timestamp > 0: ${sortedManhwaList.filter((m: any) => m.latestChapterTimestamp > 0).length}`)
 
       // Take top 100 for homepage display
       const topManhwaList = sortedManhwaList.slice(0, 100);
+      
+      console.log(`📊 Setting ${topManhwaList.length} manhwa to state`)
 
       setManhwaList(topManhwaList);
       setError(null)
