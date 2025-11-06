@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     // Check cache first
     const now = Date.now()
     if (cachedMetadata && (now - cacheTimestamp) < CACHE_DURATION) {
-      console.log('✅ Using cached metadata for search')
+      console.log(`✅ Using cached metadata for search (${cachedMetadata.length} items)`)
       manhwaList = cachedMetadata
     } else {
       console.log('📥 Fetching metadata.json for search...')
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    console.log(`Filtered to ${manhwaList.length} manhwa`)
+    console.log(`📊 Search results: ${manhwaList.length} manhwa (search: "${search}", genre: "${genre}", status: "${status}")`)
 
     // Format response to match list-from-files format
     const formattedList = manhwaList.map((m: any) => ({
@@ -208,6 +208,8 @@ export async function GET(request: NextRequest) {
           date: ch.date,
         })),
     }))
+
+    console.log(`✅ Returning ${formattedList.length} manhwa to client`)
 
     return NextResponse.json({
       success: true,
