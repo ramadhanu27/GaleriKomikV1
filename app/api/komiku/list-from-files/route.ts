@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey)
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '30', 10)
+    // Increased default limit for testing
+    const limit = parseInt(searchParams.get('limit') || '100', 10)
 
     // Check cache first
     const now = Date.now()
