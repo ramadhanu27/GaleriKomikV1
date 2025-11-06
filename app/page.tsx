@@ -31,8 +31,10 @@ export default function Home() {
 
       // Use list-from-files which already includes latestChapters (3 chapters)
       // This is much faster than batch API for homepage
+      // Add timestamp to bypass Vercel edge cache
+      const timestamp = Date.now()
       const listData = await fetchWithCache(
-        "/api/komiku/list-from-files?limit=500",
+        `/api/komiku/list-from-files?limit=500&_t=${timestamp}`,
         2 * 60 * 1000 // 2 minutes
       );
 

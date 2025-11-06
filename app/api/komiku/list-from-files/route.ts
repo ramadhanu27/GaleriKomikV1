@@ -240,8 +240,10 @@ export async function GET(request: NextRequest) {
           lastTwoChaptersLength: m.lastTwoChapters?.length || 0,
           hasChapters: !!m.chapters,
           chaptersLength: m.chapters?.length || 0,
-          chaptersType: Array.isArray(m.chapters) ? 'array' : typeof m.chapters
+          chaptersType: Array.isArray(m.chapters) ? 'array' : typeof m.chapters,
+          availableFields: Object.keys(m).join(', ')
         })
+        console.log(`📦 First manhwa full data sample:`, JSON.stringify(m).substring(0, 500))
       }
       
       // If metadata doesn't have lastTwoChapters, generate from chapters array
