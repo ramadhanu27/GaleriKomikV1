@@ -5,6 +5,9 @@ const SUPABASE_BUCKET = 'komiku-data'
 // Enable edge caching for 1 hour (3600 seconds)
 export const revalidate = 3600
 
+// Increase max duration for Vercel (60s for Pro, 10s for Hobby)
+export const maxDuration = 60
+
 // In-memory cache for metadata (to avoid re-fetching large file)
 let cachedMetadata: any[] | null = null
 let cacheTimestamp: number = 0

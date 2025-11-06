@@ -7,6 +7,9 @@ const SUPABASE_BUCKET = 'komiku-data'
 // Shorter cache for search to keep results relatively fresh
 export const revalidate = 1800
 
+// Increase max duration for Vercel (60s for Pro, 10s for Hobby)
+export const maxDuration = 60
+
 // In-memory cache for metadata (to avoid re-fetching large file)
 let cachedMetadata: any[] | null = null
 let cacheTimestamp: number = 0
@@ -90,27 +93,48 @@ export async function GET(request: NextRequest) {
         }
         
         // Use streaming for large file (11MB+)
-        if (response.body) {
-          const reader = response.body.getReader()
-          const decoder = new TextDecoder()
-          let chunks = ''
+        try {
+          if (response.body) {
+            const reader = response.body.getReader()
+            const decoder = new TextDecoder()
+            let chunks = ''
 
-          console.log('📥 Streaming metadata.json...')
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            chunks += decoder.decode(value, { stream: true })
+            console.log('📥 Streaming metadata.json...')
+            let chunkCount = 0
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              chunks += decoder.decode(value, { stream: true })
+              chunkCount++
+              
+              // Log progress every 50 chunks
+              if (chunkCount % 50 === 0) {
+                console.log(`📦 Received ${chunkCount} chunks (${Math.round(chunks.length / 1024 / 1024 * 100) / 100} MB)`)
+              }
+            }
+
+            console.log(`✅ Streaming complete: ${chunkCount} chunks, ${Math.round(chunks.length / 1024 / 1024 * 100) / 100} MB`)
+            console.log('🔍 Parsing JSON...')
+            
+            manhwaList = JSON.parse(chunks)
+            console.log(`✅ Parsed ${manhwaList.length} manhwa from metadata.json`)
+            
+            // Cache the result
+            cachedMetadata = manhwaList
+            cacheTimestamp = Date.now()
+            console.log('💾 Metadata cached for search')
+          } else {
+            console.log('⚠️ No response.body, using regular JSON parsing...')
+            manhwaList = await response.json()
+            console.log(`✅ Parsed ${manhwaList.length} manhwa (non-streaming)`)
+            
+            // Cache the result
+            cachedMetadata = manhwaList
+            cacheTimestamp = Date.now()
           }
-
-          manhwaList = JSON.parse(chunks)
-          console.log(`✅ Parsed ${manhwaList.length} manhwa from metadata.json`)
-          
-          // Cache the result
-          cachedMetadata = manhwaList
-          cacheTimestamp = Date.now()
-          console.log('💾 Metadata cached for search')
-        } else {
-          manhwaList = await response.json()
+        } catch (parseError) {
+          console.error('❌ Failed to parse metadata.json:', parseError)
+          throw new Error(`Parse error: ${parseError instanceof Error ? parseError.message : 'Unknown'}`)
         }
       } catch (err) {
         console.error('Error loading metadata file:', err)
