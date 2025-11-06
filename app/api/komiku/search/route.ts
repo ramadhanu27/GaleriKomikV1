@@ -14,9 +14,10 @@ export const revalidate = 1800
 export const maxDuration = 60
 
 // In-memory cache for metadata (to avoid re-fetching large file)
+// DISABLED temporarily to debug - cache was storing partial data
 let cachedMetadata: any[] | null = null
 let cacheTimestamp: number = 0
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const CACHE_DURATION = 0 // Disabled: was 5 * 60 * 1000
 
 export async function GET(request: NextRequest) {
   try {
