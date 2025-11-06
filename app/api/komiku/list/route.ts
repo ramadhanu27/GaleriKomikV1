@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_BUCKET = 'komiku-data'
 
+// Force dynamic rendering (required for request.url usage)
+export const dynamic = 'force-dynamic'
+
 // Enable edge caching for 1 hour (3600 seconds)
 export const revalidate = 3600
 

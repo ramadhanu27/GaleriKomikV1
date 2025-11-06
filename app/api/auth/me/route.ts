@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase-server'
 import { getAccessToken } from '@/lib/cookies'
 
+// Force dynamic rendering (required for cookies usage)
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     // Get access token from HttpOnly cookie
