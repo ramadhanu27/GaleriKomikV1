@@ -6,6 +6,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import Analytics from '@/components/Analytics'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const AuthProvider = dynamic(
   () => import('@/contexts/AuthContext').then(mod => ({ default: mod.AuthProvider })),
@@ -207,6 +208,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         <ThemeProvider>
           <AuthProvider>
             <Analytics />
+            <SpeedInsights />
             <div className="flex flex-col min-h-screen">
               <Header />
               <main className="flex-1">

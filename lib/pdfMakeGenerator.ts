@@ -85,58 +85,119 @@ async function compressImage(base64: string, maxWidth: number = 800, quality: nu
 }
 
 /**
+ * Fetch image with retry logic
+ * Enhanced for rate limiting (429) with longer backoff
+ */
+async function fetchImageWithRetry(imageUrl: string, maxRetries: number = 4): Promise<string> {
+  let lastError: Error | null = null
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
+      
+      const response = await fetch(`/api/image-to-base64?url=${encodeURIComponent(imageUrl)}`, {
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      })
+      
+      clearTimeout(timeoutId)
+      
+      // Check for rate limiting
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After')
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 5000
+        throw new Error(`RATE_LIMIT:${waitTime}`)
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      if (result.success && result.data.base64 && result.data.base64.length > 100) {
+        return result.data.base64
+      }
+      
+      throw new Error('Invalid base64 response')
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error')
+      
+      if (attempt < maxRetries) {
+        let delay: number
+        
+        // Special handling for rate limiting
+        if (lastError.message.startsWith('RATE_LIMIT:')) {
+          delay = parseInt(lastError.message.split(':')[1]) || 5000
+          console.log(`⚠️ Rate limited! Waiting ${delay / 1000}s before retry ${attempt}/${maxRetries}...`)
+        } else {
+          // Exponential backoff with longer delays
+          delay = Math.min(2000 * Math.pow(2, attempt - 1), 10000)
+          console.log(`🔄 Retry ${attempt}/${maxRetries} after ${delay}ms...`)
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+  
+  throw lastError || new Error('Failed to fetch image')
+}
+
+/**
  * Process multiple images in parallel for faster downloads
  * Uses Promise.allSettled to handle failures gracefully
+ * Reduced concurrency to avoid rate limiting from source server
  */
-async function processImagesInParallel(images: string[], maxConcurrency: number = 6, onProgress?: (current: number, total: number, status: string) => void): Promise<string[]> {
+async function processImagesInParallel(images: string[], maxConcurrency: number = 2, onProgress?: (current: number, total: number, status: string) => void): Promise<string[]> {
   const results: string[] = new Array(images.length).fill('')
   let completed = 0
+  let successCount = 0
   
-  // Process images in batches
+  // Process images in batches with delay to avoid rate limiting
   for (let i = 0; i < images.length; i += maxConcurrency) {
     const batch = images.slice(i, i + maxConcurrency)
     const batchPromises = batch.map(async (imageUrl, batchIndex) => {
       const globalIndex = i + batchIndex
       
+      // Add small delay before each request to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, batchIndex * 500))
+      
       try {
-        const response = await fetch(`/api/image-to-base64?url=${encodeURIComponent(imageUrl)}`)
+        // Fetch with retry
+        const base64 = await fetchImageWithRetry(imageUrl, 4)
         
-        if (!response.ok) {
-          throw new Error(`API error! status: ${response.status}`)
-        }
+        // Compress image for faster processing
+        const compressedBase64 = await compressImage(base64)
+        results[globalIndex] = compressedBase64
+        successCount++
         
-        const result = await response.json()
-        
-        if (result.success && result.data.base64) {
-          const base64 = result.data.base64
-          
-          // Validate and compress base64
-          if (base64 && base64.length > 100) {
-            // Compress image for faster processing
-            const compressedBase64 = await compressImage(base64)
-            results[globalIndex] = compressedBase64
-          } else {
-            console.warn(`Image ${globalIndex + 1} returned invalid base64`)
-            results[globalIndex] = ''
-          }
-        } else {
-          console.warn(`Image ${globalIndex + 1} failed to convert`)
-          results[globalIndex] = ''
-        }
       } catch (error) {
-        console.error(`Error loading image ${globalIndex + 1}:`, error, imageUrl)
+        console.error(`❌ Image ${globalIndex + 1} failed after retries:`, error instanceof Error ? error.message : error)
         results[globalIndex] = ''
       } finally {
         completed++
         if (onProgress) {
-          onProgress(completed, images.length, `Memuat gambar ${completed}/${images.length}...`)
+          const successRate = Math.round((successCount / completed) * 100)
+          onProgress(completed, images.length, `Memuat ${completed}/${images.length} (${successRate}% berhasil)`)
         }
       }
     })
     
     // Wait for current batch to complete
     await Promise.allSettled(batchPromises)
+    
+    // Add delay between batches to avoid rate limiting
+    if (i + maxConcurrency < images.length) {
+      console.log(`⏳ Waiting 2s before next batch to avoid rate limit...`)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
   }
+  
+  console.log(`✅ Download selesai: ${successCount}/${images.length} gambar berhasil`)
   
   return results
 }
@@ -204,20 +265,38 @@ export async function generateChapterPDF(
     const failedCount = images.length - validImages.length
     
     if (validImages.length === 0) {
-      throw new Error('❌ Semua gambar gagal dimuat!\n\nPastikan:\n• Koneksi internet stabil\n• Server tidak down\n• Coba lagi beberapa saat')
+      const errorMsg = 
+        '❌ DOWNLOAD GAGAL\n\n' +
+        'Semua gambar gagal dimuat!\n\n' +
+        'Kemungkinan penyebab:\n' +
+        '• Koneksi internet tidak stabil\n' +
+        '• Server komiku sedang down\n' +
+        '• Rate limit tercapai\n' +
+        '• Gambar tidak tersedia\n\n' +
+        'Solusi:\n' +
+        '• Cek koneksi internet\n' +
+        '• Tunggu beberapa menit\n' +
+        '• Coba chapter lain dulu\n' +
+        '• Refresh halaman'
+      
+      alert(errorMsg)
+      throw new Error('Semua gambar gagal dimuat')
     }
     
     // Warn user if some images failed
     if (failedCount > 0) {
       const failureRate = (failedCount / images.length * 100).toFixed(0)
+      const successRate = (validImages.length / images.length * 100).toFixed(0)
       console.warn(`⚠️ ${failedCount}/${images.length} gambar gagal dimuat (${failureRate}%)`)
       
       // Show warning if failure rate is significant (>20%)
       if (failedCount > images.length * 0.2) {
         const shouldContinue = confirm(
           `⚠️ PERINGATAN DOWNLOAD\n\n` +
-          `${failedCount} dari ${images.length} gambar gagal dimuat (${failureRate}%).\n\n` +
-          `PDF akan dibuat dengan ${validImages.length} gambar yang berhasil.\n\n` +
+          `${validImages.length}/${images.length} gambar berhasil dimuat (${successRate}%)\n` +
+          `${failedCount} gambar gagal (${failureRate}%)\n\n` +
+          `PDF akan dibuat dengan ${validImages.length} gambar.\n` +
+          `Beberapa halaman mungkin kosong.\n\n` +
           `Lanjutkan download?`
         )
         
@@ -324,16 +403,17 @@ export async function generateChapterPDFBlob(
     const failedCount = images.length - validImages.length
     
     if (validImages.length === 0) {
-      throw new Error('❌ Semua gambar gagal dimuat!\n\nPastikan:\n• Koneksi internet stabil\n• Server tidak down\n• Coba lagi beberapa saat')
+      throw new Error(`Chapter ${chapterNumber}: Semua gambar gagal dimuat`)
     }
     
     // Warn user if some images failed (for Blob generation, no confirm dialog)
     if (failedCount > 0) {
       const failureRate = (failedCount / images.length * 100).toFixed(0)
-      console.warn(`⚠️ Chapter ${chapterNumber}: ${failedCount}/${images.length} gambar gagal dimuat (${failureRate}%)`)
+      const successRate = (validImages.length / images.length * 100).toFixed(0)
+      console.warn(`⚠️ Chapter ${chapterNumber}: ${validImages.length}/${images.length} berhasil (${successRate}%), ${failedCount} gagal (${failureRate}%)`)
+    } else {
+      console.log(`✅ Chapter ${chapterNumber}: Semua ${validImages.length} gambar berhasil dimuat`)
     }
-    
-    console.log(`✅ Chapter ${chapterNumber}: Successfully loaded ${validImages.length} out of ${images.length} images`)
 
     if (onProgress) {
       onProgress(images.length, images.length, 'Membuat PDF...')

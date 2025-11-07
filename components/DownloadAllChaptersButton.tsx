@@ -35,6 +35,9 @@ export default function DownloadAllChaptersButton({
     setAbortController(controller)
     setIsDownloading(true)
     
+    let successCount = 0
+    let failedChapters: string[] = []
+    
     try {
       // Import JSZip dynamically
       const JSZip = (await import('jszip')).default
@@ -82,20 +85,48 @@ export default function DownloadAllChaptersButton({
           // Add to ZIP
           const fileName = `${manhwaTitle.replace(/[^a-z0-9]/gi, '_')}_Chapter_${chapterNumber}.pdf`
           zip.file(fileName, pdfBlob)
+          successCount++
           
         } catch (error) {
           // Check if error is due to abort
           if (controller.signal.aborted) {
             throw new Error('Download dihentikan oleh pengguna')
           }
-          console.error(`Error downloading chapter ${chapterNumber}:`, error)
-          // Continue with other chapters even if one fails
+          
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+          console.error(`❌ Chapter ${chapterNumber} gagal:`, errorMsg)
+          failedChapters.push(chapterNumber)
+          
+          // Show user-friendly error for this chapter
+          const shouldContinue = confirm(
+            `⚠️ Chapter ${chapterNumber} Gagal\n\n` +
+            `Error: ${errorMsg}\n\n` +
+            `Progress: ${successCount}/${chapterNumbers.length} berhasil\n` +
+            `Gagal: ${failedChapters.length} chapter\n\n` +
+            `Lanjutkan download chapter lainnya?`
+          )
+          
+          if (!shouldContinue) {
+            throw new Error('Download dihentikan oleh pengguna')
+          }
+          
+          // Continue with other chapters
         }
       }
       
       // Check if download was aborted before final step
       if (controller.signal.aborted) {
         throw new Error('Download dihentikan oleh pengguna')
+      }
+      
+      // Check if we have any successful downloads
+      if (successCount === 0) {
+        alert(
+          '❌ DOWNLOAD GAGAL\n\n' +
+          'Tidak ada chapter yang berhasil didownload.\n\n' +
+          'Silakan coba lagi atau hubungi admin.'
+        )
+        return
       }
       
       // Generate and download ZIP
@@ -109,12 +140,28 @@ export default function DownloadAllChaptersButton({
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       
+      // Show summary
+      const successRate = Math.round((successCount / chapterNumbers.length) * 100)
+      const summaryMsg = 
+        '✅ DOWNLOAD SELESAI\n\n' +
+        `Berhasil: ${successCount}/${chapterNumbers.length} chapter (${successRate}%)\n` +
+        (failedChapters.length > 0 ? `Gagal: ${failedChapters.join(', ')}\n\n` : '\n') +
+        `File ZIP telah didownload!`
+      
+      alert(summaryMsg)
+      
     } catch (error) {
       if (error instanceof Error && error.message === 'Download dihentikan oleh pengguna') {
         console.log('Download stopped by user')
+        alert(`Download dihentikan.\n\n${successCount} chapter berhasil didownload sebelum dibatalkan.`)
       } else {
         console.error('Download all chapters error:', error)
-        alert('Gagal mengunduh semua chapter. Silakan coba lagi.')
+        alert(
+          '❌ ERROR\n\n' +
+          'Gagal mengunduh chapter.\n\n' +
+          `Error: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
+          'Silakan coba lagi.'
+        )
       }
     } finally {
       setIsDownloading(false)
