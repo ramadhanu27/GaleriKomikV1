@@ -63,13 +63,9 @@ export default function DownloadChapterButtonSmall({
         throw new Error('Chapter ini tidak memiliki gambar')
       }
       
-      // Import getProxiedImageUrl dynamically
-      const { getProxiedImageUrl } = await import('@/lib/imageProxy')
-      
-      // Convert images to proxied URLs
-      const proxiedImages = images.map((img: any) => {
-        const originalUrl = typeof img === 'string' ? img : img.url
-        return getProxiedImageUrl(originalUrl)
+      // Use original URLs directly (fetch from img.komiku.org)
+      const imageUrls = images.map((img: any) => {
+        return typeof img === 'string' ? img : img.url
       })
       
       // Generate PDF
@@ -78,7 +74,7 @@ export default function DownloadChapterButtonSmall({
           manhwaTitle,
           chapterNumber,
           chapterTitle: chapterTitle || chapter.title,
-          images: proxiedImages
+          images: imageUrls
         },
         (current, total, status) => {
           setProgress(Math.round((current / total) * 100))

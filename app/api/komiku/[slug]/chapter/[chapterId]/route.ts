@@ -53,9 +53,39 @@ export async function GET(
     const prevChapter = currentIndex > 0 ? chapters[currentIndex - 1] : null
     const nextChapter = currentIndex < chapters.length - 1 ? chapters[currentIndex + 1] : null
 
+    // Convert galerikomik.cyou URLs back to img.komiku.org to avoid rate limiting
+    const convertToOriginalUrl = (url: string): string => {
+      if (!url) return url
+      
+      // Convert galerikomik.cyou proxy URLs back to img.komiku.org
+      if (url.includes('galerikomik.cyou/img-proxy')) {
+        return url.replace('https://www.galerikomik.cyou/img-proxy', 'https://img.komiku.org')
+      }
+      if (url.includes('galerikomik.cyou/thumbnail-proxy')) {
+        return url.replace('https://www.galerikomik.cyou/thumbnail-proxy', 'https://thumbnail.komiku.org')
+      }
+      
+      return url
+    }
+
+    // Convert all image URLs in chapter
+    const convertedChapter = {
+      ...chapter,
+      images: chapter.images?.map((img: any) => {
+        if (typeof img === 'string') {
+          return convertToOriginalUrl(img)
+        }
+        return {
+          ...img,
+          url: convertToOriginalUrl(img.url || img.src || ''),
+          src: convertToOriginalUrl(img.src || img.url || ''),
+        }
+      }) || [],
+    }
+
     // Add manhwa info to chapter for reading history
     const chapterWithManhwaInfo = {
-      ...chapter,
+      ...convertedChapter,
       manhwa_title: chapterJson.title || chapterJson.manhwa_title || slug,
       manhwa_image: chapterJson.image || chapterJson.cover || '',
       manhwa_slug: slug,
