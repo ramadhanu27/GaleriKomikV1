@@ -30,7 +30,7 @@ export default function ChapterPage() {
   const [allChapters, setAllChapters] = useState<any[]>([])
   const [scrollSpeed, setScrollSpeed] = useState(2) // pixels per interval
   const [showNav, setShowNav] = useState(true)
-  const [lastScrollY, setLastScrollY] = useState(0)
+  const lastScrollYRef = useRef(0)
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
@@ -55,15 +55,15 @@ export default function ChapterPage() {
 
       const currentScrollY = window.scrollY
       
-      if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        // Scrolling down - hide nav
-        setShowNav(false)
-      } else if (currentScrollY < lastScrollY) {
-        // Scrolling up - show nav
+      // Show nav only when at top of page
+      if (currentScrollY < 100) {
         setShowNav(true)
+      } else {
+        // Hide nav when scrolled down (user must click to show)
+        setShowNav(false)
       }
       
-      setLastScrollY(currentScrollY)
+      lastScrollYRef.current = currentScrollY
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -71,7 +71,7 @@ export default function ChapterPage() {
     return () => {
       window.removeEventListener('scroll', handleScroll)
     }
-  }, [lastScrollY, autoScroll])
+  }, [autoScroll])
 
   useEffect(() => {
     if (autoScroll) {
@@ -291,6 +291,19 @@ export default function ChapterPage() {
           )}
         </div>
       </div>
+
+      {/* Floating Show Nav Button - Only visible when nav is hidden */}
+      {!showNav && (
+        <button
+          onClick={() => setShowNav(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-2xl z-50 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+          title="Show Navigation"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
 
       {/* Fixed Bottom Navigation */}
       <div className={`fixed bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/95 to-slate-900/80 backdrop-blur-md border-t border-slate-800 shadow-2xl z-40 transition-transform duration-300 ${

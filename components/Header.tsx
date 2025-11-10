@@ -77,29 +77,23 @@ export default function Header() {
     const handleScroll = () => {
       const currentScrollY = window.scrollY
       
-      if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setShowHeader(false)
-      } else if (currentScrollY < lastScrollY) {
+      // Show header only when at top of page
+      if (currentScrollY < 100) {
         setShowHeader(true)
+      } else {
+        // Hide header when scrolled down
+        setShowHeader(false)
       }
       
       setLastScrollY(currentScrollY)
     }
 
-    const handleClick = () => {
-      if (!showHeader) {
-        setShowHeader(true)
-      }
-    }
-
     window.addEventListener('scroll', handleScroll, { passive: true })
-    window.addEventListener('click', handleClick)
     
     return () => {
       window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('click', handleClick)
     }
-  }, [lastScrollY, isChapterPage, showHeader])
+  }, [isChapterPage])
 
   return (
     <>
