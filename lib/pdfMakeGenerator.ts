@@ -178,15 +178,15 @@ async function processImagesInParallel(
     }
   } else {
     options = {
-      maxConcurrency: 4,
-      batchDelay: 1000,
+      maxConcurrency: 6,
+      batchDelay: 500,
       maxRetries: 3,
-      staggerDelay: 1000,
+      staggerDelay: 500,
       ...optionsOrConcurrency
     }
   }
   
-  const { maxConcurrency = 4, batchDelay = 1000, maxRetries = 3, staggerDelay = 1000, onProgress } = options
+  const { maxConcurrency = 6, batchDelay = 500, maxRetries = 3, staggerDelay = 500, onProgress } = options
   const results: string[] = new Array(images.length).fill('')
   let completed = 0
   let successCount = 0
@@ -293,10 +293,10 @@ export async function generateChapterPDF(
     }
 
     // Process images with optimized concurrency for speed
-    console.log(`🚀 Processing ${images.length} images (4 at a time for faster download)...`)
+    console.log(`🚀 Processing ${images.length} images (6 at a time for faster download)...`)
     const startTime = Date.now()
     
-    const base64Images = await processImagesInParallel(images, 4, onProgress)
+    const base64Images = await processImagesInParallel(images, 6, onProgress)
     
     const processingTime = Date.now() - startTime
     console.log(`✅ Processing completed in ${processingTime}ms`)
@@ -431,10 +431,10 @@ export async function generateChapterPDFBlob(
     }
 
     // Process images with optimized concurrency for speed
-    console.log(`🚀 Processing ${images.length} images (4 at a time for faster download)...`)
+    console.log(`🚀 Processing ${images.length} images (6 at a time for faster download)...`)
     const startTime = Date.now()
     
-    const base64Images = await processImagesInParallel(images, 4, onProgress)
+    const base64Images = await processImagesInParallel(images, 6, onProgress)
     
     const processingTime = Date.now() - startTime
     console.log(`✅ Processing completed in ${processingTime}ms`)
