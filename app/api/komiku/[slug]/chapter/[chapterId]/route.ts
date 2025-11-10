@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { supabase, SUPABASE_BUCKET } from '@/lib/supabase-server'
 
-// Enable edge caching for 3 hours (10800 seconds)
-// Chapter content is static and doesn't change
-export const revalidate = 10800
+// Disable cache for testing URL conversion
+// TODO: Re-enable after testing (set to 10800)
+export const revalidate = 0
+export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: Request,
@@ -69,6 +70,12 @@ export async function GET(
     }
 
     // Convert all image URLs in chapter
+    const debugOriginalImages = Array.isArray(chapter.images)
+      ? chapter.images.slice(0, 3).map((img: any) =>
+          typeof img === 'string' ? img : img?.url || img?.src || ''
+        )
+      : []
+
     const convertedChapter = {
       ...chapter,
       images: chapter.images?.map((img: any) => {
@@ -90,6 +97,20 @@ export async function GET(
       manhwa_image: chapterJson.image || chapterJson.cover || '',
       manhwa_slug: slug,
     }
+
+    const debugConvertedImages = Array.isArray(convertedChapter.images)
+      ? convertedChapter.images.slice(0, 3).map((img: any) =>
+          typeof img === 'string' ? img : img?.url || img?.src || ''
+        )
+      : []
+
+    console.log(
+      `[ChapterAPI] ${slug}/${chapterId} images debug`,
+      {
+        original: debugOriginalImages,
+        converted: debugConvertedImages,
+      }
+    )
 
     return NextResponse.json({
       success: true,

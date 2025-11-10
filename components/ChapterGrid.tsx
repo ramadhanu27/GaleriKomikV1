@@ -220,7 +220,6 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
   const downloadSingleChapter = async (chapterNumber: string, signal?: AbortSignal) => {
     // Import dynamically to avoid SSR issues
     const { generateChapterPDF } = await import('@/lib/pdfMakeGenerator')
-    const { getProxiedImageUrl } = await import('@/lib/imageProxy')
     
     // Check if aborted before making request
     if (signal?.aborted) {
@@ -246,10 +245,9 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
       throw new Error(`❌ Chapter ${chapterNumber} tidak memiliki gambar.\n\nChapter ini mungkin belum tersedia atau rusak.`)
     }
     
-    const proxiedImages = images.map((img: any) => {
-      const originalUrl = typeof img === 'string' ? img : img.url
-      return getProxiedImageUrl(originalUrl)
-    })
+    const originalImages = images.map((img: any) =>
+      typeof img === 'string' ? img : img.url || img.src
+    )
     
     // Estimate total size (avg 100KB per compressed image)
     const estimatedTotalMB = (images.length * 100) / 1024
@@ -258,7 +256,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
       manhwaTitle: manhwaTitle || '',
       chapterNumber,
       chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
-      images: proxiedImages
+      images: originalImages
     }, (current, total, status) => {
       // Update progress
       const percent = (current / total) * 100
@@ -279,7 +277,6 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
     const JSZip = (await import('jszip')).default
     const zip = new JSZip()
     
-    const { getProxiedImageUrl } = await import('@/lib/imageProxy')
     const { generateChapterPDFBlob } = await import('@/lib/pdfMakeGenerator')
     
     // Calculate total estimated size
@@ -330,10 +327,9 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
             throw new Error(`Chapter ${chapterNumber} has no images`)
           }
           
-          const proxiedImages = images.map((img: any) => {
-            const originalUrl = typeof img === 'string' ? img : img.url
-            return getProxiedImageUrl(originalUrl)
-          })
+          const originalImages = images.map((img: any) =>
+          typeof img === 'string' ? img : img.url || img.src
+        )
           
           // Estimate size for this chapter (reduced estimate for faster processing)
           const chapterEstimatedMB = (images.length * 75) / 1024 // Reduced from 100KB
@@ -348,7 +344,7 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
             manhwaTitle: manhwaTitle || 'Galeri Komik',
             chapterNumber,
             chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
-            images: proxiedImages
+            images: originalImages,
           })
           
           return { chapterNumber, pdfBlob, estimatedMB: chapterEstimatedMB }

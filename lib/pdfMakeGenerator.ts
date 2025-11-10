@@ -20,7 +20,7 @@ interface ChapterData {
  * Optimized for manga/comic images to achieve < 5MB total file size
  * Using optimal settings: 800px width @ 50% quality (JPEG) for faster processing
  */
-async function compressImage(base64: string, maxWidth: number = 800, quality: number = 0.5): Promise<string> {
+async function compressImage(base64: string, maxWidth: number = 1000, quality: number = 0.6): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
       const img = new Image()
@@ -132,11 +132,61 @@ async function fetchImageWithRetry(imageUrl: string, maxRetries: number = 3): Pr
 }
 
 /**
+ * Options for processImagesInParallel
+ */
+interface ProcessImagesOptions {
+  maxConcurrency?: number      // Number of parallel downloads (default: 4)
+  batchDelay?: number          // Delay between batches in ms (default: 1000)
+  maxRetries?: number          // Max retry per image (default: 3)
+  staggerDelay?: number        // Delay between images in batch in ms (default: 1000)
+  onProgress?: (current: number, total: number, status: string) => void
+}
+
+/**
  * Process multiple images in parallel for faster downloads
  * Uses Promise.allSettled to handle failures gracefully
- * Reduced concurrency to avoid rate limiting from source server
+ * Configurable concurrency and delays to balance speed and reliability
+ * 
+ * @param images - Array of image URLs to process
+ * @param options - Configuration options for processing
+ * @returns Promise<string[]> - Array of base64 images (empty string for failed images)
+ * 
+ * @example
+ * // Fast (4 parallel, 1s delay)
+ * processImagesInParallel(images, { maxConcurrency: 4, batchDelay: 1000 })
+ * 
+ * // Conservative (2 parallel, 3s delay)
+ * processImagesInParallel(images, { maxConcurrency: 2, batchDelay: 3000 })
+ * 
+ * // Aggressive (6 parallel, 0.5s delay)
+ * processImagesInParallel(images, { maxConcurrency: 6, batchDelay: 500 })
  */
-async function processImagesInParallel(images: string[], maxConcurrency: number = 1, onProgress?: (current: number, total: number, status: string) => void): Promise<string[]> {
+async function processImagesInParallel(
+  images: string[], 
+  optionsOrConcurrency?: ProcessImagesOptions | number,
+  legacyOnProgress?: (current: number, total: number, status: string) => void
+): Promise<string[]> {
+  // Handle backward compatibility (old signature with number)
+  let options: ProcessImagesOptions
+  if (typeof optionsOrConcurrency === 'number') {
+    options = {
+      maxConcurrency: optionsOrConcurrency,
+      batchDelay: 1000,
+      maxRetries: 3,
+      staggerDelay: 1000,
+      onProgress: legacyOnProgress
+    }
+  } else {
+    options = {
+      maxConcurrency: 4,
+      batchDelay: 1000,
+      maxRetries: 3,
+      staggerDelay: 1000,
+      ...optionsOrConcurrency
+    }
+  }
+  
+  const { maxConcurrency = 4, batchDelay = 1000, maxRetries = 3, staggerDelay = 1000, onProgress } = options
   const results: string[] = new Array(images.length).fill('')
   let completed = 0
   let successCount = 0
@@ -147,12 +197,12 @@ async function processImagesInParallel(images: string[], maxConcurrency: number 
     const batchPromises = batch.map(async (imageUrl, batchIndex) => {
       const globalIndex = i + batchIndex
       
-      // Add delay before each request to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, batchIndex * 1000))
+      // Add stagger delay before each request to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, batchIndex * staggerDelay))
       
       try {
-        // Fetch with retry (API already handles retry internally)
-        const base64 = await fetchImageWithRetry(imageUrl, 3)
+        // Fetch with retry (uses maxRetries from options)
+        const base64 = await fetchImageWithRetry(imageUrl, maxRetries)
         
         // Compress image for faster processing
         const compressedBase64 = await compressImage(base64)
@@ -177,14 +227,14 @@ async function processImagesInParallel(images: string[], maxConcurrency: number 
     // Add delay between batches to avoid rate limiting
     if (i + maxConcurrency < images.length) {
       const nextImageNum = i + maxConcurrency + 1
-      const delaySeconds = 3
+      const delaySeconds = Math.round(batchDelay / 1000)
       console.log(`⏳ Waiting ${delaySeconds}s before next batch to avoid rate limit...`)
       
       if (onProgress) {
         onProgress(completed, images.length, `Menunggu ${delaySeconds} detik... (batch berikutnya)`)
       }
       
-      await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000))
+      await new Promise(resolve => setTimeout(resolve, batchDelay))
     }
   }
   
@@ -242,11 +292,11 @@ export async function generateChapterPDF(
       onProgress(0, images.length, 'Memulai...')
     }
 
-    // Process images with balanced concurrency (circuit breaker will handle rate limits)
-    console.log(`🚀 Processing ${images.length} images (2 at a time with circuit breaker)...`)
+    // Process images with optimized concurrency for speed
+    console.log(`🚀 Processing ${images.length} images (4 at a time for faster download)...`)
     const startTime = Date.now()
     
-    const base64Images = await processImagesInParallel(images, 2, onProgress)
+    const base64Images = await processImagesInParallel(images, 4, onProgress)
     
     const processingTime = Date.now() - startTime
     console.log(`✅ Processing completed in ${processingTime}ms`)
@@ -380,11 +430,11 @@ export async function generateChapterPDFBlob(
       onProgress(0, images.length, 'Memulai...')
     }
 
-    // Process images with balanced concurrency (circuit breaker will handle rate limits)
-    console.log(`🚀 Processing ${images.length} images (2 at a time with circuit breaker)...`)
+    // Process images with optimized concurrency for speed
+    console.log(`🚀 Processing ${images.length} images (4 at a time for faster download)...`)
     const startTime = Date.now()
     
-    const base64Images = await processImagesInParallel(images, 2, onProgress)
+    const base64Images = await processImagesInParallel(images, 4, onProgress)
     
     const processingTime = Date.now() - startTime
     console.log(`✅ Processing completed in ${processingTime}ms`)

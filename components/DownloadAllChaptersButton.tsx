@@ -182,7 +182,6 @@ export default function DownloadAllChaptersButton({
   const generateChapterPDF = async (chapterNumber: string, signal?: AbortSignal) => {
     // Import dynamically to avoid SSR issues
     const { generateChapterPDFBlob } = await import('@/lib/pdfMakeGenerator')
-    const { getProxiedImageUrl } = await import('@/lib/imageProxy')
     
     // Check if aborted before making request
     if (signal?.aborted) {
@@ -208,17 +207,16 @@ export default function DownloadAllChaptersButton({
       throw new Error('Chapter tidak memiliki gambar')
     }
     
-    const proxiedImages = images.map((img: any) => {
-      const originalUrl = typeof img === 'string' ? img : img.url
-      return getProxiedImageUrl(originalUrl)
-    })
+    const originalImages = images.map((img: any) =>
+      typeof img === 'string' ? img : img.url || img.src
+    )
     
     // Generate PDF blob
     return await generateChapterPDFBlob({
       manhwaTitle,
       chapterNumber,
       chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
-      images: proxiedImages
+      images: originalImages
     }, () => {
       // Progress callback (not used for individual chapters in bulk download)
     })
