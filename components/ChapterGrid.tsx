@@ -218,66 +218,59 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
   }
 
   const downloadSingleChapter = async (chapterNumber: string, signal?: AbortSignal) => {
-    // Import dynamically to avoid SSR issues
-    const { generateChapterPDF } = await import('@/lib/pdfMakeGenerator')
-    
     // Check if aborted before making request
     if (signal?.aborted) {
       throw new Error('Download dihentikan oleh pengguna')
     }
     
-    const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapterNumber}`, { signal })
-    const data = await response.json()
+    console.log(`🚀 Downloading chapter ${chapterNumber} via server-side...`)
+    
+    // Use server-side PDF generation API (much faster!)
+    const response = await fetch('/api/chapter/download', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        slug: manhwaSlug,
+        chapterId: chapterNumber
+      }),
+      signal
+    })
     
     // Check if aborted after request
     if (signal?.aborted) {
       throw new Error('Download dihentikan oleh pengguna')
     }
     
-    if (!data.success || !data.data.chapter) {
-      throw new Error(`❌ Gagal memuat data chapter ${chapterNumber}.\n\nSilakan coba lagi.`)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || 'Failed to generate PDF')
     }
     
-    const chapter = data.data.chapter
-    const images = chapter.images || []
+    // Get PDF blob
+    const pdfBlob = await response.blob()
     
-    if (images.length === 0) {
-      throw new Error(`❌ Chapter ${chapterNumber} tidak memiliki gambar.\n\nChapter ini mungkin belum tersedia atau rusak.`)
-    }
+    // Download PDF
+    const url = URL.createObjectURL(pdfBlob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${manhwaSlug}-chapter-${chapterNumber}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
     
-    const originalImages = images.map((img: any) =>
-      typeof img === 'string' ? img : img.url || img.src
-    )
-    
-    // Estimate total size (avg 100KB per compressed image)
-    const estimatedTotalMB = (images.length * 100) / 1024
-    
-    await generateChapterPDF({
-      manhwaTitle: manhwaTitle || '',
-      chapterNumber,
-      chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
-      images: originalImages
-    }, (current, total, status) => {
-      // Update progress
-      const percent = (current / total) * 100
-      const loadedMB = (current / total) * estimatedTotalMB
-      
-      setDownloadProgress({
-        percent,
-        loadedMB,
-        totalMB: estimatedTotalMB,
-        currentFile: current,
-        totalFiles: total
-      })
-    })
+    // Log processing time
+    const processingTime = response.headers.get('X-Processing-Time')
+    const imageCount = response.headers.get('X-Image-Count')
+    console.log(`✅ Chapter ${chapterNumber} downloaded! (${processingTime}, ${imageCount} images)`)
   }
 
   const downloadMultipleChapters = async (chapterNumbers: string[], signal?: AbortSignal) => {
     // Import JSZip dynamically
     const JSZip = (await import('jszip')).default
     const zip = new JSZip()
-    
-    const { generateChapterPDFBlob } = await import('@/lib/pdfMakeGenerator')
     
     // Calculate total estimated size
     let totalEstimatedMB = 0
@@ -306,46 +299,41 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
             throw new Error('Download dihentikan oleh pengguna')
           }
           
-          const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapterNumber}`, { signal })
-          const data = await response.json()
+          console.log(`🚀 Downloading chapter ${chapterNumber} via server-side...`)
+          
+          // Use server-side PDF generation API
+          const response = await fetch('/api/chapter/download', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              slug: manhwaSlug,
+              chapterId: chapterNumber
+            }),
+            signal
+          })
           
           // Check if aborted after request
           if (signal?.aborted) {
             throw new Error('Download dihentikan oleh pengguna')
           }
           
-          if (!data.success || !data.data.chapter) {
-            console.error(`Chapter ${chapterNumber}: Failed to fetch data`)
-            throw new Error(`Failed to fetch chapter ${chapterNumber}`)
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.error || 'Failed to generate PDF')
           }
           
-          const chapter = data.data.chapter
-          const images = chapter.images || []
+          // Get PDF blob
+          const pdfBlob = await response.blob()
           
-          if (images.length === 0) {
-            console.error(`Chapter ${chapterNumber}: No images found`)
-            throw new Error(`Chapter ${chapterNumber} has no images`)
-          }
+          // Estimate size (50MB per chapter avg)
+          const chapterEstimatedMB = 50
           
-          const originalImages = images.map((img: any) =>
-          typeof img === 'string' ? img : img.url || img.src
-        )
-          
-          // Estimate size for this chapter (reduced estimate for faster processing)
-          const chapterEstimatedMB = (images.length * 75) / 1024 // Reduced from 100KB
-          
-          // Check if aborted before PDF generation
-          if (signal?.aborted) {
-            throw new Error('Download dihentikan oleh pengguna')
-          }
-          
-          // Generate PDF blob
-          const pdfBlob = await generateChapterPDFBlob({
-            manhwaTitle: manhwaTitle || 'Galeri Komik',
-            chapterNumber,
-            chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
-            images: originalImages,
-          })
+          // Log processing time
+          const processingTime = response.headers.get('X-Processing-Time')
+          const imageCount = response.headers.get('X-Image-Count')
+          console.log(`✅ Chapter ${chapterNumber} downloaded! (${processingTime}, ${imageCount} images)`)
           
           return { chapterNumber, pdfBlob, estimatedMB: chapterEstimatedMB }
           
