@@ -42,42 +42,55 @@ export default function DownloadChapterButtonSmall({
   const handleDirectPDFDownload = async () => {
     try {
       setIsGenerating(true)
+      setProgress(10)
       
-      // Fetch chapter data
-      const response = await fetch(`/api/komiku/${manhwaSlug}/chapter/${chapterNumber}`)
+      console.log('🚀 Starting server-side PDF generation...')
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch chapter data')
-      }
-      
-      const data = await response.json()
-      
-      if (!data.success || !data.data.chapter) {
-        throw new Error('Chapter data not found')
-      }
-      
-      const chapter = data.data.chapter
-      const images = chapter.images || []
-      
-      if (images.length === 0) {
-        throw new Error('Chapter ini tidak memiliki gambar')
-      }
-      
-      // Use original URLs directly (fetch from img.komiku.org)
-      const imageUrls = images.map((img: any) => {
-        return typeof img === 'string' ? img : img.url
+      // Call server-side PDF generation API
+      const response = await fetch('/api/chapter/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          slug: manhwaSlug,
+          chapterId: chapterNumber
+        })
       })
       
-      // Generate PDF
-      await generateChapterPDF(
-        {
-          manhwaTitle,
-          chapterNumber,
-          chapterTitle: chapterTitle || chapter.title,
-          images: imageUrls
-        },
-        (current, total, status) => {
-          setProgress(Math.round((current / total) * 100))
+      setProgress(50)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to generate PDF')
+      }
+      
+      setProgress(80)
+      
+      // Get PDF blob
+      const blob = await response.blob()
+      
+      setProgress(90)
+      
+      // Download PDF
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${manhwaSlug}-chapter-${chapterNumber}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      
+      setProgress(100)
+      
+      // Get processing time from headers
+      const processingTime = response.headers.get('X-Processing-Time')
+      const imageCount = response.headers.get('X-Image-Count')
+      console.log(`✅ PDF downloaded! (${processingTime}, ${imageCount} images)`)
+      
+      setTimeout(() => {
+        setProgress(0)
         }
       )
       
