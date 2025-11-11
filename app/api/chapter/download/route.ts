@@ -241,7 +241,8 @@ export async function GET(request: NextRequest) {
     const filename = `${safeTitle}_Chapter_${chapter}.pdf`;
 
     // Return PDF as downloadable file
-    return new Response(pdfBytes, {
+    // Convert Uint8Array to Buffer for Response compatibility
+    return new Response(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
