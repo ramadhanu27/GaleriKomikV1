@@ -15,27 +15,19 @@ export default function AnnouncementBanner() {
   const [isVisible, setIsVisible] = useState(false)
   const [announcements] = useState<Announcement[]>([
     {
-  id: 'update-2025-10-31',
-  title: '🆕 Penanda Komik Baru Telah Hadir!',
-  message: 'Sekarang setiap komik yang baru di-update dalam 3 hari terakhir akan otomatis diberi badge “NEW” di cover-nya. Kamu bisa langsung tahu mana yang baru rilis tanpa perlu scroll panjang! 🚀',
-  type: 'success',
-  date: '31 Oktober 2025'
+      id: 'update-2025-11-11-pdf-converter',
+      title: '📄 PDF Converter Baru!',
+      message: 'Fitur baru! Sekarang kamu bisa download chapter manga dalam format PDF. Cari manga favoritmu, pilih chapter yang mau di-download, dan klik download. Mudah dan cepat! Kunjungi halaman PDF Converter di menu navigasi.',
+      type: 'success',
+      date: '11 November 2025'
     },
     {
-  id: 'update-2025-10-31-popularrating',
-  title: '⭐ Komik Populer Berdasarkan Rating',
-  message: 'Sidebar “Popular” kini menampilkan daftar komik dengan rating tertinggi. Semakin tinggi rating, semakin atas posisinya! 🔥',
-  type: 'info',
-  date: '31 Oktober 2025'
-},
-{
-  id: 'update-2025-10-31-newbadge',
-  title: '🆕 Penanda Komik Baru!',
-  message: 'Sekarang setiap komik yang baru diperbarui dalam 3 hari terakhir akan otomatis diberi badge “NEW” di cover. Kamu bisa langsung tahu mana yang baru rilis tanpa harus cari satu-satu! 🚀',
-  type: 'success',
-  date: '31 Oktober 2025'
-},
-
+      id: 'update-2025-11-11-simplified-ui',
+      title: '✨ Tampilan Lebih Simpel!',
+      message: 'Kami telah menyederhanakan tampilan daftar chapter. Sekarang lebih fokus untuk membaca dengan layout 1 kolom yang clean dan mudah dinavigasi. Fitur download dipindahkan ke halaman PDF Converter khusus.',
+      type: 'update',
+      date: '11 November 2025'
+    }
   ])
 
   useEffect(() => {

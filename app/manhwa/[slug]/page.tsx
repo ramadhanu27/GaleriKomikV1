@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { getCover } from '@/lib/imageOptimizer'
 import { getFlagByType, getCountryByType } from '@/lib/getFlagByType'
 import { getProxiedImageUrl } from '@/lib/imageProxy'
-import ChapterGrid from '@/components/ChapterGrid'
+import ChapterGridSimple from '@/components/ChapterGridSimple'
 import RecommendedManhwa from '@/components/RecommendedManhwa'
 import BookmarkButton from '@/components/BookmarkButton'
 import AuthModal from '@/components/AuthModal'
@@ -287,7 +287,7 @@ export default function ManhwaDetailPage() {
           </h2>
           
           {manhwa.chapters && manhwa.chapters.length > 0 ? (
-            <ChapterGrid 
+            <ChapterGridSimple 
               chapters={manhwa.chapters} 
               manhwaSlug={slug}
               manhwaTitle={manhwa.manhwaTitle || manhwa.title}
