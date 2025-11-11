@@ -35,12 +35,31 @@ export async function GET(request: NextRequest) {
     // No limit by default - return all data
     const requestedLimit = parseInt(searchParams.get('limit') || '0', 10)
     const limit = requestedLimit || Number.MAX_SAFE_INTEGER
+    const searchQuery = searchParams.get('search') || ''
 
     // Check cache first
     const now = Date.now()
     if (cachedMetadata && (now - cacheTimestamp) < CACHE_DURATION) {
       console.log('✅ Using cached metadata (age:', Math.round((now - cacheTimestamp) / 1000), 'seconds)')
-      const allManhwa = cachedMetadata
+      let allManhwa = cachedMetadata
+      
+      // Filter by search query if provided
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim()
+        console.log(`🔍 [CACHE] Filtering by search query: "${query}"`)
+        
+        allManhwa = allManhwa.filter((m: any) => {
+          const title = (m.manhwaTitle || m.title || '').toLowerCase()
+          const altTitle = (m.alternativeTitle || '').toLowerCase()
+          const synopsis = (m.synopsis || '').toLowerCase()
+          
+          return title.includes(query) || 
+                 altTitle.includes(query) || 
+                 synopsis.includes(query)
+        })
+        
+        console.log(`📊 [CACHE] Search results: ${allManhwa.length} manhwa found`)
+      }
       
       // Sort and limit
       const sorted = allManhwa
@@ -207,8 +226,27 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ Loaded ${allManhwa.length} manhwa items`)
 
+    // Filter by search query if provided
+    let filtered = allManhwa
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      console.log(`🔍 Filtering by search query: "${query}"`)
+      
+      filtered = allManhwa.filter((m: any) => {
+        const title = (m.manhwaTitle || m.title || '').toLowerCase()
+        const altTitle = (m.alternativeTitle || '').toLowerCase()
+        const synopsis = (m.synopsis || '').toLowerCase()
+        
+        return title.includes(query) || 
+               altTitle.includes(query) || 
+               synopsis.includes(query)
+      })
+      
+      console.log(`📊 Search results: ${filtered.length} manhwa found`)
+    }
+
     // Urutkan berdasarkan scrapedAt terbaru (desc)
-    const sorted = allManhwa
+    const sorted = filtered
       .filter((m: any) => m.scrapedAt || m.lastModified)
       .sort((a: any, b: any) => {
         const dateA = new Date(a.scrapedAt || a.lastModified || 0).getTime()

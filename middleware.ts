@@ -46,6 +46,9 @@ export function middleware(request: NextRequest) {
   // Add security headers to all responses
   const response = NextResponse.next()
   
+  // Add pathname to headers for layout
+  response.headers.set('x-pathname', pathname)
+  
   // Prevent clickjacking
   response.headers.set('X-Frame-Options', 'SAMEORIGIN')
   

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Download, FileText, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Manhwa {
   slug: string;
@@ -11,6 +12,8 @@ interface Manhwa {
   type: string;
   status: string;
   totalChapters: number;
+  rating?: number;
+  genres?: string[];
 }
 
 interface Chapter {
@@ -27,28 +30,56 @@ export default function PDFConverterPage() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingChapters, setIsLoadingChapters] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Modal state for single chapter download
   const [showModal, setShowModal] = useState(false);
   const [currentChapter, setCurrentChapter] = useState<string>('');
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [pdfReady, setPdfReady] = useState(false);
+  const [downloadUrl, setDownloadUrl] = useState<string>('');
+  const [progressMessage, setProgressMessage] = useState<string>('Preparing download...');
+
+  // Real-time search with debounce
+  const handleSearchInput = (value: string) => {
+    setSearchQuery(value);
+    
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // If empty, clear results
+    if (!value.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    // Set new timeout for search
+    const timeout = setTimeout(() => {
+      handleSearch(value);
+    }, 500); // 500ms debounce
+    
+    setSearchTimeout(timeout);
+  };
 
   // Search manhwa
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = async (query?: string) => {
+    const searchTerm = query || searchQuery;
+    if (!searchTerm.trim()) return;
 
     setIsSearching(true);
-    console.log('[PDF Search] Searching for:', searchQuery);
+    console.log('[PDF Search] Searching for:', searchTerm);
     
     try {
       // Try list-from-files first (has more complete data)
-      let response = await fetch(`/api/komiku/list-from-files?search=${encodeURIComponent(searchQuery)}&limit=20`);
+      let response = await fetch(`/api/komiku/list-from-files?search=${encodeURIComponent(searchTerm)}&limit=20`);
       let data = await response.json();
       
       // Fallback to regular list if list-from-files fails
       if (!data.success || !data.data.manhwa || data.data.manhwa.length === 0) {
         console.log('[PDF Search] Trying fallback API...');
-        response = await fetch(`/api/komiku/list?search=${encodeURIComponent(searchQuery)}&limit=20`);
+        response = await fetch(`/api/komiku/list?search=${encodeURIComponent(searchTerm)}&limit=20`);
         data = await response.json();
       }
       
@@ -72,7 +103,9 @@ export default function PDFConverterPage() {
             image: m.image,
             type: m.type || 'Manhwa',
             status: m.status || 'Ongoing',
-            totalChapters: m.totalChapters || m.chapters?.length || 0
+            totalChapters: m.totalChapters || m.chapters?.length || 0,
+            rating: m.rating ? parseFloat(m.rating) : undefined,
+            genres: m.genres || []
           };
         });
         
@@ -118,10 +151,14 @@ export default function PDFConverterPage() {
     setCurrentChapter(chapterNumber);
     setShowModal(true);
     setDownloadProgress(0);
+    setPdfReady(false);
+    setDownloadUrl('');
+    setProgressMessage('Preparing download...');
 
     try {
-      console.log('[PDF Download] Starting download for chapter:', chapterNumber);
+      console.log('[PDF Download] Starting PDF generation for chapter:', chapterNumber);
       setDownloadProgress(10);
+      setProgressMessage('Fetching chapter data...');
       
       // Get chapter data from Supabase
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -132,13 +169,18 @@ export default function PDFConverterPage() {
       
       const jsonResponse = await fetch(jsonUrl);
       if (!jsonResponse.ok) throw new Error('Failed to fetch chapter data');
-      setDownloadProgress(20);
       
       const data = await jsonResponse.json();
+      setDownloadProgress(20);
+      setProgressMessage('Chapter data loaded');
+      
       const chapter = data.chapters.find((ch: any) => ch.number === chapterNumber);
       
       if (!chapter || !chapter.images) throw new Error('Chapter not found');
+      
+      const totalImages = Array.isArray(chapter.images) ? chapter.images.length : 0;
       setDownloadProgress(30);
+      setProgressMessage(`Found ${totalImages} images`);
 
       console.log('[PDF Download] Chapter data:', chapter);
       console.log('[PDF Download] Images type:', typeof chapter.images);
@@ -168,55 +210,93 @@ export default function PDFConverterPage() {
         throw new Error('No valid image URLs found');
       }
       setDownloadProgress(40);
+      setProgressMessage(`Validating ${imageUrls.length} images`);
 
       // Build download URL
-      const downloadUrl = `/api/chapter/download?chapter=${encodeURIComponent(chapterNumber)}&title=${encodeURIComponent(selectedManhwa.title)}${imageUrls.map(img => `&img=${encodeURIComponent(img)}`).join('')}`;
+      const pdfUrl = `/api/chapter/download?chapter=${encodeURIComponent(chapterNumber)}&title=${encodeURIComponent(selectedManhwa.title)}${imageUrls.map(img => `&img=${encodeURIComponent(img)}`).join('')}`;
       
-      console.log('[PDF Download] Fetching PDF from API...');
+      console.log('[PDF Download] Starting PDF generation on server...');
       setDownloadProgress(50);
+      setProgressMessage('Starting PDF generation...');
       
-      // Fetch PDF as blob instead of opening new tab
-      const pdfResponse = await fetch(downloadUrl);
-      if (!pdfResponse.ok) throw new Error('Failed to generate PDF');
-      setDownloadProgress(80);
+      // Simulate image processing progress
+      let currentImage = 0;
+      const progressInterval = setInterval(() => {
+        currentImage += Math.floor(Math.random() * 3) + 1; // Random 1-3 images
+        if (currentImage >= imageUrls.length) {
+          currentImage = imageUrls.length;
+          clearInterval(progressInterval);
+        }
+        const progress = 50 + Math.floor((currentImage / imageUrls.length) * 40); // 50% to 90%
+        setDownloadProgress(progress);
+        setProgressMessage(`Processing image ${currentImage}/${imageUrls.length}`);
+      }, 500);
       
-      const blob = await pdfResponse.blob();
-      setDownloadProgress(90);
+      // Actually fetch PDF from server (pre-generate)
+      const response = await fetch(pdfUrl);
+      clearInterval(progressInterval);
       
-      // Create download link with proper MIME type
-      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `${selectedManhwa.title} - Chapter ${chapterNumber}.pdf`;
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
       
-      // Add to DOM, click, and cleanup
-      document.body.appendChild(a);
+      console.log('[PDF Download] Downloading PDF from server...');
+      setDownloadProgress(92);
+      setProgressMessage('PDF generated, downloading...');
       
-      // Small delay to ensure browser registers the element
-      await new Promise(resolve => setTimeout(resolve, 100));
-      a.click();
+      // Get the blob
+      const blob = await response.blob();
+      console.log('[PDF Download] PDF downloaded, size:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
+      setDownloadProgress(95);
+      setProgressMessage(`Downloaded ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
       
-      console.log('[PDF Download] Download triggered');
+      // Create blob URL
+      const blobUrl = window.URL.createObjectURL(blob);
+      setDownloadUrl(blobUrl);
+      
       setDownloadProgress(100);
-      
-      // Cleanup after a delay
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }, 100);
-      
-      // Close modal after 1 second
-      setTimeout(() => {
-        setShowModal(false);
-        setCurrentChapter('');
-      }, 1000);
+      setPdfReady(true);
+      setProgressMessage('PDF ready for download!');
+      console.log('[PDF Download] PDF ready for download!');
     } catch (error) {
       console.error('[PDF Download] Error:', error);
       alert('Failed to generate PDF. Please try again.');
       setShowModal(false);
       setCurrentChapter('');
     }
+  };
+
+  // Trigger actual download when user clicks button
+  const triggerDownload = () => {
+    if (!downloadUrl) return;
+    
+    console.log('[PDF Download] User clicked download button');
+    
+    // Create anchor and trigger download
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `${selectedManhwa?.title} - Chapter ${currentChapter}.pdf`;
+    a.style.display = 'none';
+    
+    document.body.appendChild(a);
+    a.click();
+    
+    console.log('[PDF Download] Download triggered in browser');
+    
+    // Cleanup and close modal
+    setTimeout(() => {
+      document.body.removeChild(a);
+      
+      // Revoke blob URL to free memory
+      if (downloadUrl.startsWith('blob:')) {
+        window.URL.revokeObjectURL(downloadUrl);
+      }
+      
+      setShowModal(false);
+      setCurrentChapter('');
+      setPdfReady(false);
+      setDownloadUrl('');
+    }, 1000);
   };
 
   return (
@@ -287,14 +367,14 @@ export default function PDFConverterPage() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Ketik judul..."
+                  placeholder="Ketik judul... (auto search)"
                   className="w-full pl-12 pr-4 py-3 bg-slate-700/50 border-2 border-slate-600 text-white placeholder-slate-400 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
                 />
               </div>
               <button
-                onClick={handleSearch}
+                onClick={() => handleSearch()}
                 disabled={isSearching || !searchQuery.trim()}
                 className="px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-medium rounded-xl hover:from-primary-700 hover:to-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-500/30"
               >
@@ -315,24 +395,81 @@ export default function PDFConverterPage() {
               Hasil Pencarian ({searchResults.length})
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {searchResults.map((manhwa) => (
+              {searchResults.map((manhwa, index) => (
                 <button
                   key={manhwa.slug}
                   onClick={() => handleSelectManhwa(manhwa)}
-                  className="group text-left bg-slate-700/30 border-2 border-slate-600 rounded-lg overflow-hidden hover:border-primary-500 hover:shadow-lg hover:shadow-primary-500/20 transition-all"
+                  className="group text-left bg-slate-700/30 border-2 border-slate-600 rounded-lg overflow-hidden hover:border-primary-500 hover:shadow-lg hover:shadow-primary-500/20 transition-all hover:-translate-y-1"
                 >
+                  {/* Image */}
                   <div className="aspect-[3/4] relative overflow-hidden bg-slate-900">
-                    <img
+                    <Image
                       src={manhwa.image}
                       alt={manhwa.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      fill
+                      sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                      className="object-cover group-hover:scale-110 transition-transform duration-300"
+                      priority={index < 5}
+                      placeholder="blur"
+                      blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI2NyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI2NyIgZmlsbD0iIzFhMjAyYyIvPjwvc3ZnPg=="
                     />
+                    
+                    {/* Type Badge */}
+                    <div className="absolute top-2 left-2">
+                      <span className="px-2 py-1 text-xs font-medium bg-primary-500/90 text-white rounded shadow-lg backdrop-blur-sm">
+                        {manhwa.type}
+                      </span>
+                    </div>
+                    
+                    {/* Rating Badge */}
+                    {manhwa.rating && (
+                      <div className="absolute top-2 right-2">
+                        <span className="px-2 py-1 text-xs font-medium bg-yellow-500/90 text-white rounded shadow-lg backdrop-blur-sm flex items-center gap-1">
+                          <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                          </svg>
+                          {manhwa.rating.toFixed(1)}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Status Badge */}
+                    <div className="absolute bottom-2 left-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded shadow-lg backdrop-blur-sm ${
+                        manhwa.status === 'Ongoing' 
+                          ? 'bg-green-500/90 text-white' 
+                          : 'bg-slate-500/90 text-white'
+                      }`}>
+                        {manhwa.status}
+                      </span>
+                    </div>
                   </div>
+                  
+                  {/* Info */}
                   <div className="p-3">
-                    <h4 className="font-medium text-sm text-white line-clamp-2 mb-1">
+                    <h4 className="font-semibold text-sm text-white line-clamp-2 mb-2 group-hover:text-primary-400 transition-colors">
                       {manhwa.title}
                     </h4>
-                    <p className="text-xs text-slate-400">
+                    
+                    {/* Genres */}
+                    {manhwa.genres && manhwa.genres.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {manhwa.genres.slice(0, 2).map((genre, i) => (
+                          <span key={i} className="px-1.5 py-0.5 text-xs bg-slate-600/50 text-slate-300 rounded">
+                            {genre}
+                          </span>
+                        ))}
+                        {manhwa.genres.length > 2 && (
+                          <span className="px-1.5 py-0.5 text-xs text-slate-400">
+                            +{manhwa.genres.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Chapter Count */}
+                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
                       {manhwa.totalChapters} Chapter
                     </p>
                   </div>
@@ -356,13 +493,69 @@ export default function PDFConverterPage() {
                 <h3 className="text-xl font-bold text-white mb-2">
                   {selectedManhwa.title}
                 </h3>
-                <div className="flex items-center gap-4 text-sm text-slate-400">
-                  <span className="px-2 py-1 bg-primary-500/20 text-primary-400 border border-primary-500/30 rounded">
+                
+                {/* Type, Status, Chapters */}
+                <div className="flex items-center gap-3 text-sm mb-3">
+                  <span className="px-2 py-1 bg-primary-500/20 text-primary-400 border border-primary-500/30 rounded font-medium">
                     {selectedManhwa.type}
                   </span>
-                  <span>{selectedManhwa.status}</span>
-                  <span>{selectedManhwa.totalChapters} Chapter</span>
+                  <span className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded">
+                    {selectedManhwa.status}
+                  </span>
+                  <span className="text-slate-400">
+                    {selectedManhwa.totalChapters} Chapter
+                  </span>
                 </div>
+                
+                {/* Rating */}
+                {selectedManhwa.rating && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <svg
+                          key={i}
+                          className={`w-4 h-4 ${
+                            i < Math.floor(selectedManhwa.rating || 0)
+                              ? 'text-yellow-400 fill-current'
+                              : 'text-slate-600'
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                          />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-sm text-slate-400">
+                      {selectedManhwa.rating.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Genres */}
+                {selectedManhwa.genres && selectedManhwa.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedManhwa.genres.slice(0, 5).map((genre, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-0.5 text-xs bg-slate-700/30 text-slate-300 border border-slate-600/50 rounded"
+                      >
+                        {genre}
+                      </span>
+                    ))}
+                    {selectedManhwa.genres.length > 5 && (
+                      <span className="px-2 py-0.5 text-xs text-slate-400">
+                        +{selectedManhwa.genres.length - 5} more
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => {
@@ -446,11 +639,21 @@ export default function PDFConverterPage() {
             {/* Modal Header */}
             <div className="px-6 py-4 border-b flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-primary-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Generating PDF</h3>
+                {pdfReady ? (
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                ) : (
+                  <Loader2 className="w-5 h-5 animate-spin text-primary-600" />
+                )}
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {pdfReady ? 'Download PDF ready' : 'Generating PDF'}
+                </h3>
               </div>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setPdfReady(false);
+                  setDownloadUrl('');
+                }}
                 className="p-1 hover:bg-gray-100 rounded transition-colors"
               >
                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -461,17 +664,39 @@ export default function PDFConverterPage() {
 
             {/* Modal Body */}
             <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-4">
-                Progress: {downloadProgress}%
-              </p>
-              
-              {/* Progress Bar */}
-              <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-primary-600 to-primary-500 h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${downloadProgress}%` }}
-                />
-              </div>
+              {!pdfReady ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-1">
+                      Progress: {downloadProgress}%
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {progressMessage}
+                    </p>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                    <div 
+                      className="bg-gradient-to-r from-primary-600 to-primary-500 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${downloadProgress}%` }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 className="w-10 h-10 text-green-600" />
+                  </div>
+                  <button
+                    onClick={triggerDownload}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-medium rounded-lg hover:from-primary-700 hover:to-primary-600 transition-all shadow-lg shadow-primary-500/30 flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download PDF
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

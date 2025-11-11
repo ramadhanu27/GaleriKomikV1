@@ -236,20 +236,25 @@ export async function GET(request: NextRequest) {
 
     console.log(`[PDF Download] PDF generated successfully. Size: ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB`);
 
-    // Create safe filename
-    const safeTitle = manhwaTitle.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+    // Create safe filename (RFC 5987 encoding for international characters)
+    const safeTitle = manhwaTitle.replace(/[^a-z0-9\s-]/gi, '_').substring(0, 50).trim();
     const filename = `${safeTitle}_Chapter_${chapter}.pdf`;
+    const encodedFilename = encodeURIComponent(filename);
 
     // Return PDF as downloadable file
     // Convert Uint8Array to Buffer for Response compatibility
     return new Response(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        // Use both filename and filename* for better browser compatibility
+        'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
         'Content-Length': pdfBytes.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
+        // Additional headers to force download
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Transfer-Encoding': 'binary',
       },
     });
   } catch (error) {

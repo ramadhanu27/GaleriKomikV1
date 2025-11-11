@@ -7,6 +7,7 @@ import Footer from '@/components/Footer'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import Analytics from '@/components/Analytics'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import { headers } from 'next/headers'
 
 const AuthProvider = dynamic(
   () => import('@/contexts/AuthContext').then(mod => ({ default: mod.AuthProvider })),
@@ -101,11 +102,15 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const headersList = await headers()
+  const pathname = headersList.get('x-pathname') || ''
+  const isPdfPage = pathname === '/pdf'
+  
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
@@ -210,11 +215,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             <Analytics />
             <SpeedInsights />
             <div className="flex flex-col min-h-screen">
-              <Header />
+              {!isPdfPage && <Header />}
               <main className="flex-1">
                 {children}
               </main>
-              <Footer />
+              {!isPdfPage && <Footer />}
             </div>
           </AuthProvider>
         </ThemeProvider>
