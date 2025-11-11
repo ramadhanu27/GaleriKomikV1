@@ -19,8 +19,10 @@ interface ChapterData {
  * Compress image to reduce file size while maintaining quality
  * Optimized for manga/comic images to achieve < 5MB total file size
  * Using optimal settings: 800px width @ 50% quality (JPEG) for faster processing
+ * 
+ * FAST MODE: Use maxWidth=600, quality=0.4 for 3x faster processing
  */
-async function compressImage(base64: string, maxWidth: number = 1000, quality: number = 0.6): Promise<string> {
+async function compressImage(base64: string, maxWidth: number = 600, quality: number = 0.4): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
       const img = new Image()
@@ -85,8 +87,8 @@ async function compressImage(base64: string, maxWidth: number = 1000, quality: n
 }
 
 /**
- * Fetch image with simple retry logic
- * API already handles retry internally, so we just need basic retry here
+ * Fetch image via API proxy (required due to CORS/CSP)
+ * API handles CORS and returns base64 directly
  */
 async function fetchImageWithRetry(imageUrl: string, maxRetries: number = 3): Promise<string> {
   let lastError: Error | null = null
@@ -94,13 +96,11 @@ async function fetchImageWithRetry(imageUrl: string, maxRetries: number = 3): Pr
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 40000) // 40s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
       
+      // Use API as CORS proxy
       const response = await fetch(`/api/image-to-base64?url=${encodeURIComponent(imageUrl)}`, {
         signal: controller.signal,
-        headers: {
-          'Cache-Control': 'no-cache',
-        }
       })
       
       clearTimeout(timeoutId)
@@ -112,17 +112,25 @@ async function fetchImageWithRetry(imageUrl: string, maxRetries: number = 3): Pr
       const result = await response.json()
       
       if (result.success && result.data.base64 && result.data.base64.length > 100) {
-        return result.data.base64
+        const base64 = result.data.base64
+        
+        // Validate format: must be a data URL
+        if (!base64.startsWith('data:image/')) {
+          console.error('❌ API returned invalid format:', base64.substring(0, 50))
+          throw new Error('API returned non-data-URL format')
+        }
+        
+        return base64
       }
       
-      throw new Error('Invalid base64 response')
+      throw new Error('Invalid response from API')
+      
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error('Unknown error')
+      lastError = error instanceof Error ? error : new Error(String(error))
       
       if (attempt < maxRetries) {
-        // Simple delay: 2s, 4s, 6s
-        const delay = attempt * 2000
-        console.log(`🔄 Retry ${attempt}/${maxRetries} after ${delay}ms...`)
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 3000)
+        console.log(`⚠️ Retry ${attempt}/${maxRetries} after ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
@@ -201,12 +209,11 @@ async function processImagesInParallel(
       await new Promise(resolve => setTimeout(resolve, batchIndex * staggerDelay))
       
       try {
-        // Fetch with retry (uses maxRetries from options)
+        // Fetch via API (CORS proxy) - no compression for speed
         const base64 = await fetchImageWithRetry(imageUrl, maxRetries)
         
-        // Compress image for faster processing
-        const compressedBase64 = await compressImage(base64)
-        results[globalIndex] = compressedBase64
+        // Store without compression (faster!)
+        results[globalIndex] = base64
         successCount++
         
       } catch (error) {
@@ -242,9 +249,9 @@ async function processImagesInParallel(
   
   return results
 }
-async function getBase64ImageFromUrl(url: string, compress: boolean = true): Promise<string> {
+async function getBase64ImageFromUrl(url: string, compress: boolean = false): Promise<string> {
   try {
-    // Use API route to convert image to base64
+    // Use API as CORS proxy (required due to CSP)
     const response = await fetch(`/api/image-to-base64?url=${encodeURIComponent(url)}`)
     
     if (!response.ok) {
@@ -259,14 +266,19 @@ async function getBase64ImageFromUrl(url: string, compress: boolean = true): Pro
     
     let base64 = data.data.base64
     
-    // Compress image if enabled (optimal compression: 1080px @ 60% for < 5MB total)
+    // Validate format: must be a data URL
+    if (!base64.startsWith('data:image/')) {
+      console.error('❌ API returned invalid format:', base64.substring(0, 50))
+      throw new Error('API returned non-data-URL format')
+    }
+    
+    // Skip compression for speed (compress = false by default)
     if (compress) {
       try {
         base64 = await compressImage(base64, 1080, 0.6)
         console.log('Image compressed successfully (1080px @ 60% quality)')
       } catch (compressError) {
         console.warn('Compression failed, using original image:', compressError)
-        // Use original if compression fails
       }
     }
     
@@ -371,7 +383,9 @@ export async function generateChapterPDF(
       content: [
         // All images in one continuous page
         ...base64Images.map((base64, index) => {
-          if (!base64) {
+          // Strict validation: must be non-empty and valid data URL
+          if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image/')) {
+            console.warn(`⚠️ Image ${index + 1} invalid format:`, base64 ? base64.substring(0, 50) : 'empty')
             return {
               text: `[Gambar ${index + 1} gagal dimuat]`,
               alignment: 'center',
@@ -475,7 +489,9 @@ export async function generateChapterPDFBlob(
       content: [
         // All images in one continuous page
         ...base64Images.map((base64, index) => {
-          if (!base64) {
+          // Strict validation: must be non-empty and valid data URL
+          if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image/')) {
+            console.warn(`⚠️ Image ${index + 1} invalid format:`, base64 ? base64.substring(0, 50) : 'empty')
             return {
               text: `[Gambar ${index + 1} gagal dimuat]`,
               alignment: 'center',
@@ -598,7 +614,9 @@ export async function openChapterPDF(
       content: [
         // All images in one continuous page
         ...base64Images.map((base64, index) => {
-          if (!base64) {
+          // Strict validation: must be non-empty and valid data URL
+          if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image/')) {
+            console.warn(`⚠️ Image ${index + 1} invalid format:`, base64 ? base64.substring(0, 50) : 'empty')
             return {
               text: `[Gambar ${index + 1} gagal dimuat]`,
               alignment: 'center',

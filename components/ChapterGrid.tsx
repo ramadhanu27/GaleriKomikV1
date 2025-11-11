@@ -223,48 +223,58 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
       throw new Error('Download dihentikan oleh pengguna')
     }
     
-    console.log(`🚀 Downloading chapter ${chapterNumber} via server-side...`)
+    console.log(`🚀 Downloading chapter ${chapterNumber} from Supabase...`)
     
-    // Use server-side PDF generation API (much faster!)
-    const response = await fetch('/api/chapter/download', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        slug: manhwaSlug,
-        chapterId: chapterNumber
-      }),
-      signal
-    })
+    // Get Supabase public URL for manhwa JSON
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'komiku-data'
+    const jsonUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/Chapter/komiku/${manhwaSlug}.json`
+    
+    // Fetch manhwa JSON directly from Supabase
+    const jsonResponse = await fetch(jsonUrl, { signal })
+    
+    if (!jsonResponse.ok) {
+      throw new Error(`Manhwa data not found in Supabase`)
+    }
+    
+    const manhwaData = await jsonResponse.json()
+    
+    // Find specific chapter
+    const chapters = manhwaData.chapters || []
+    const chapter = chapters.find((ch: any) => ch.number?.toString() === chapterNumber.toString())
+    
+    if (!chapter) {
+      throw new Error(`Chapter ${chapterNumber} tidak ditemukan`)
+    }
+    
+    const images = chapter.images || []
+    
+    if (images.length === 0) {
+      throw new Error(`Chapter ${chapterNumber} tidak memiliki gambar`)
+    }
     
     // Check if aborted after request
     if (signal?.aborted) {
       throw new Error('Download dihentikan oleh pengguna')
     }
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.error || 'Failed to generate PDF')
-    }
+    const imageUrls = images.map((img: any) => {
+      // Handle both string and object format
+      if (typeof img === 'string') return img
+      return img.url || img.src || img
+    })
     
-    // Get PDF blob
-    const pdfBlob = await response.blob()
+    // Use direct download via server-side API
+    const { downloadChapterDirect } = await import('@/lib/directDownload')
     
-    // Download PDF
-    const url = URL.createObjectURL(pdfBlob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${manhwaSlug}-chapter-${chapterNumber}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    downloadChapterDirect({
+      manhwaTitle: manhwaTitle || '',
+      manhwaSlug,
+      chapterNumber,
+      images: imageUrls
+    })
     
-    // Log processing time
-    const processingTime = response.headers.get('X-Processing-Time')
-    const imageCount = response.headers.get('X-Image-Count')
-    console.log(`✅ Chapter ${chapterNumber} downloaded! (${processingTime}, ${imageCount} images)`)
+    console.log(`✅ Chapter ${chapterNumber} download triggered! (${images.length} images)`)
   }
 
   const downloadMultipleChapters = async (chapterNumbers: string[], signal?: AbortSignal) => {
@@ -299,41 +309,61 @@ export default function ChapterGrid({ chapters, manhwaSlug, manhwaTitle }: Chapt
             throw new Error('Download dihentikan oleh pengguna')
           }
           
-          console.log(`🚀 Downloading chapter ${chapterNumber} via server-side...`)
+          console.log(`🚀 Downloading chapter ${chapterNumber} from Supabase...`)
           
-          // Use server-side PDF generation API
-          const response = await fetch('/api/chapter/download', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              slug: manhwaSlug,
-              chapterId: chapterNumber
-            }),
-            signal
-          })
+          // Get Supabase public URL for manhwa JSON
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'komiku-data'
+          const jsonUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/Chapter/komiku/${manhwaSlug}.json`
+          
+          // Fetch manhwa JSON
+          const jsonResponse = await fetch(jsonUrl, { signal })
+          
+          if (!jsonResponse.ok) {
+            throw new Error(`Manhwa data not found`)
+          }
+          
+          const manhwaData = await jsonResponse.json()
+          
+          // Find specific chapter
+          const chapters = manhwaData.chapters || []
+          const chapter = chapters.find((ch: any) => ch.number?.toString() === chapterNumber.toString())
+          
+          if (!chapter) {
+            throw new Error(`Chapter ${chapterNumber} not found`)
+          }
+          
+          const images = chapter.images || []
+          
+          if (images.length === 0) {
+            throw new Error(`Chapter ${chapterNumber} has no images`)
+          }
           
           // Check if aborted after request
           if (signal?.aborted) {
             throw new Error('Download dihentikan oleh pengguna')
           }
           
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            throw new Error(errorData.error || 'Failed to generate PDF')
-          }
+          const imageUrls = images.map((img: any) => {
+            // Handle both string and object format
+            if (typeof img === 'string') return img
+            return img.url || img.src || img
+          })
           
-          // Get PDF blob
-          const pdfBlob = await response.blob()
+          // Generate PDF
+          const { generateChapterPDFBlob } = await import('@/lib/pdfMakeGenerator')
           
-          // Estimate size (50MB per chapter avg)
-          const chapterEstimatedMB = 50
+          const pdfBlob = await generateChapterPDFBlob({
+            manhwaTitle: manhwaTitle || 'Galeri Komik',
+            chapterNumber,
+            chapterTitle: chapter.title || `Chapter ${chapterNumber}`,
+            images: imageUrls
+          }, () => {})
           
-          // Log processing time
-          const processingTime = response.headers.get('X-Processing-Time')
-          const imageCount = response.headers.get('X-Image-Count')
-          console.log(`✅ Chapter ${chapterNumber} downloaded! (${processingTime}, ${imageCount} images)`)
+          // Estimate size
+          const chapterEstimatedMB = (images.length * 75) / 1024
+          
+          console.log(`✅ Chapter ${chapterNumber} downloaded! (${images.length} images)`)
           
           return { chapterNumber, pdfBlob, estimatedMB: chapterEstimatedMB }
           

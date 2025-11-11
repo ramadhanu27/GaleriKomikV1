@@ -1,238 +1,261 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server';
+import { PDFDocument } from 'pdf-lib';
+import sharp from 'sharp';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 minutes for large PDFs
 
-// Server-side image fetching with retry
-async function fetchImageWithRetry(url: string, maxRetries = 3): Promise<Buffer> {
-  for (let i = 0; i < maxRetries; i++) {
+async function fetchImageAsBase64(url: string, baseUrl: string, retries = 3): Promise<string> {
+  for (let i = 0; i < retries; i++) {
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000)
-
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://komiku.org/',
-        },
-      })
-
-      clearTimeout(timeout)
+      // Use internal image proxy API to bypass CORS
+      const proxyUrl = `${baseUrl}/api/image-to-base64?url=${encodeURIComponent(url)}`;
+      
+      console.log(`[fetchImageAsBase64] Attempt ${i + 1}/${retries} - Fetching: ${url.substring(0, 100)}...`);
+      console.log(`[fetchImageAsBase64] Proxy URL: ${proxyUrl.substring(0, 150)}...`);
+      
+      const response = await fetch(proxyUrl);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
+        console.error(`[fetchImageAsBase64] HTTP ${response.status} - ${response.statusText}`);
+        throw new Error(`HTTP ${response.status}`);
       }
 
-      const arrayBuffer = await response.arrayBuffer()
-      return Buffer.from(arrayBuffer)
-    } catch (error: any) {
-      console.error(`Retry ${i + 1}/${maxRetries} for ${url}:`, error.message)
-      if (i === maxRetries - 1) throw error
-      await new Promise(resolve => setTimeout(resolve, (i + 1) * 1000))
-    }
-  }
-  throw new Error('Max retries reached')
-}
-
-// Process images in parallel on server
-async function processImagesParallel(
-  images: string[],
-  maxConcurrency = 10
-): Promise<{ base64: string; contentType: string }[]> {
-  const results: { base64: string; contentType: string }[] = []
-  
-  for (let i = 0; i < images.length; i += maxConcurrency) {
-    const batch = images.slice(i, i + maxConcurrency)
-    
-    const batchResults = await Promise.allSettled(
-      batch.map(async (imageUrl) => {
-        try {
-          const buffer = await fetchImageWithRetry(imageUrl)
-          const base64 = buffer.toString('base64')
-          const contentType = imageUrl.endsWith('.png') ? 'image/png' : 
-                            imageUrl.endsWith('.jpg') || imageUrl.endsWith('.jpeg') ? 'image/jpeg' : 
-                            'image/webp'
-          
-          return {
-            base64: `data:${contentType};base64,${base64}`,
-            contentType
-          }
-        } catch (error) {
-          console.error(`Failed to fetch ${imageUrl}:`, error)
-          return null
-        }
-      })
-    )
-
-    for (const result of batchResults) {
-      if (result.status === 'fulfilled' && result.value) {
-        results.push(result.value)
-      } else {
-        results.push({ base64: '', contentType: 'image/jpeg' })
+      const data = await response.json();
+      
+      if (!data.success || !data.data.base64) {
+        console.error(`[fetchImageAsBase64] Invalid response:`, data);
+        throw new Error('Failed to get base64 image');
       }
-    }
 
-    console.log(`Processed ${Math.min(i + maxConcurrency, images.length)}/${images.length} images`)
-  }
-
-  return results
-}
-
-// Generate PDF using pdfmake
-async function generatePDFBuffer(
-  chapterData: any,
-  images: { base64: string; contentType: string }[]
-): Promise<Buffer> {
-  const PdfPrinter = require('pdfmake')
-  const fonts = {
-    Roboto: {
-      normal: 'node_modules/pdfmake/build/vfs_fonts.js',
-      bold: 'node_modules/pdfmake/build/vfs_fonts.js',
-    }
-  }
-
-  const printer = new PdfPrinter(fonts)
-
-  // Filter valid images
-  const validImages = images.filter(img => img.base64)
-
-  // Create document definition
-  const docDefinition: any = {
-    pageSize: {
-      width: 595.28,
-      height: 'auto'
-    },
-    pageMargins: [0, 0, 0, 0],
-    content: validImages.map((img, index) => ({
-      image: img.base64,
-      width: 595.28,
-      pageBreak: index < validImages.length - 1 ? 'after' : undefined
-    })),
-    info: {
-      title: chapterData.title || `Chapter ${chapterData.number}`,
-      author: 'Galeri Komik',
-      subject: chapterData.title,
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    try {
-      const pdfDoc = printer.createPdfKitDocument(docDefinition)
-      const chunks: Buffer[] = []
-
-      pdfDoc.on('data', (chunk: Buffer) => chunks.push(chunk))
-      pdfDoc.on('end', () => resolve(Buffer.concat(chunks)))
-      pdfDoc.on('error', reject)
-
-      pdfDoc.end()
+      console.log(`[fetchImageAsBase64] ✅ Success - Base64 length: ${data.data.base64.length}`);
+      
+      // Return base64 string (already includes data:image/...;base64,...)
+      return data.data.base64;
     } catch (error) {
-      reject(error)
+      console.error(`[fetchImageAsBase64] Error on attempt ${i + 1}:`, error);
+      if (i === retries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
-  })
+  }
+  throw new Error('Failed to fetch image');
 }
 
-export async function POST(request: NextRequest) {
+async function base64ToArrayBuffer(base64: string): Promise<ArrayBuffer> {
+  // Remove data URL prefix if present
+  const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+  const buffer = Buffer.from(base64Data, 'base64');
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+}
+
+async function convertImageToJpeg(imageBuffer: ArrayBuffer, isWebP: boolean): Promise<Buffer> {
+  if (!isWebP) {
+    // If not WebP, return as is
+    return Buffer.from(imageBuffer);
+  }
+  
   try {
-    const { slug, chapterId } = await request.json()
+    console.log('[convertImageToJpeg] Converting WebP to JPEG...');
+    // Convert WebP to JPEG using sharp
+    const jpegBuffer = await sharp(Buffer.from(imageBuffer))
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    
+    console.log(`[convertImageToJpeg] ✅ Converted - Original: ${imageBuffer.byteLength} bytes, JPEG: ${jpegBuffer.length} bytes`);
+    return jpegBuffer;
+  } catch (error) {
+    console.error('[convertImageToJpeg] Conversion failed:', error);
+    // Fallback to original buffer
+    return Buffer.from(imageBuffer);
+  }
+}
 
-    if (!slug || !chapterId) {
+async function getImageDimensions(imageBytes: ArrayBuffer): Promise<{ width: number; height: number }> {
+  // Simple image dimension detection for JPEG and PNG
+  const bytes = new Uint8Array(imageBytes);
+  
+  // PNG detection
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+    const width = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+    const height = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
+    return { width, height };
+  }
+  
+  // JPEG detection
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8) {
+    let offset = 2;
+    while (offset < bytes.length) {
+      if (bytes[offset] !== 0xFF) break;
+      const marker = bytes[offset + 1];
+      if (marker === 0xC0 || marker === 0xC2) {
+        const height = (bytes[offset + 5] << 8) | bytes[offset + 6];
+        const width = (bytes[offset + 7] << 8) | bytes[offset + 8];
+        return { width, height };
+      }
+      const segmentLength = (bytes[offset + 2] << 8) | bytes[offset + 3];
+      offset += segmentLength + 2;
+    }
+  }
+  
+  // Default dimensions if detection fails
+  return { width: 800, height: 1200 };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const chapter = searchParams.get('chapter') || 'unknown';
+    const manhwaTitle = searchParams.get('title') || 'Manhwa';
+    const images = searchParams.getAll('img');
+
+    if (!images || images.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Missing slug or chapterId' },
+        { error: 'No images provided' },
         { status: 400 }
-      )
+      );
     }
 
-    console.log(`📥 Server-side PDF generation started: ${slug}/${chapterId}`)
-
-    // Fetch chapter data from Supabase
-    const { data: files, error: listError } = await supabase.storage
-      .from(process.env.NEXT_PUBLIC_SUPABASE_BUCKET!)
-      .list(`komiku-data/${slug}`, {
-        search: `${chapterId}.json`
-      })
-
-    if (listError || !files || files.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Chapter not found' },
-        { status: 404 }
-      )
-    }
-
-    // Download chapter JSON
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from(process.env.NEXT_PUBLIC_SUPABASE_BUCKET!)
-      .download(`komiku-data/${slug}/${chapterId}.json`)
-
-    if (downloadError || !fileData) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to download chapter data' },
-        { status: 500 }
-      )
-    }
-
-    const chapterText = await fileData.text()
-    const chapterData = JSON.parse(chapterText)
-
-    // Extract image URLs
-    const images = (chapterData.images || []).map((img: any) => 
-      typeof img === 'string' ? img : img.url || img.src
-    )
-
-    if (images.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'No images found' },
-        { status: 404 }
-      )
-    }
-
-    console.log(`🖼️  Processing ${images.length} images...`)
-
-    // Process images in parallel (server is faster!)
-    const startTime = Date.now()
-    const processedImages = await processImagesParallel(images, 10)
-    const fetchTime = Date.now() - startTime
-    console.log(`✅ Images fetched in ${fetchTime}ms`)
-
-    // Generate PDF
-    console.log(`📄 Generating PDF...`)
-    const pdfStartTime = Date.now()
-    const pdfBuffer = await generatePDFBuffer(chapterData, processedImages)
-    const pdfTime = Date.now() - pdfStartTime
-    console.log(`✅ PDF generated in ${pdfTime}ms`)
-
-    const totalTime = Date.now() - startTime
-    console.log(`🎉 Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`)
-
-    // Return PDF
-    const filename = `${slug}-chapter-${chapterId}.pdf`
+    console.log(`[PDF Download] Starting generation for ${manhwaTitle} - Chapter ${chapter}`);
+    console.log(`[PDF Download] Total images: ${images.length}`);
+    console.log(`[PDF Download] Request URL: ${request.url}`);
     
-    // Convert Buffer to Uint8Array for Response compatibility
-    const pdfArray = new Uint8Array(pdfBuffer)
+    // Get base URL from request
+    const url = new URL(request.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+    console.log(`[PDF Download] Base URL: ${baseUrl}`);
+
+    // Create new PDF document
+    const pdfDoc = await PDFDocument.create();
+
+    // Process all images first to get dimensions and buffers
+    console.log('[PDF Download] Step 1: Fetching and processing all images...');
+    const processedImages: Array<{
+      buffer: Buffer;
+      width: number;
+      height: number;
+      isPng: boolean;
+    }> = [];
+
+    for (let i = 0; i < images.length; i++) {
+      const imgUrl = images[i];
+      console.log(`[PDF Download] Processing image ${i + 1}/${images.length}: ${imgUrl.substring(0, 80)}...`);
+
+      try {
+        // Fetch image as base64 via proxy
+        const base64Image = await fetchImageAsBase64(imgUrl, baseUrl);
+        const imageBytes = await base64ToArrayBuffer(base64Image);
+        
+        // Check if image is WebP
+        const isWebP = imgUrl.toLowerCase().includes('.webp') || imgUrl.toLowerCase().includes('webp');
+        const isPng = imgUrl.toLowerCase().includes('.png') || imgUrl.toLowerCase().includes('png');
+        
+        console.log(`[PDF Download] Image ${i + 1} format: ${isWebP ? 'WebP' : isPng ? 'PNG' : 'JPEG'}`);
+        
+        // Convert WebP to JPEG (pdf-lib doesn't support WebP)
+        const processedBuffer = await convertImageToJpeg(imageBytes, isWebP);
+        
+        // Get dimensions using sharp (more reliable)
+        const metadata = await sharp(processedBuffer).metadata();
+        const dimensions = {
+          width: metadata.width || 800,
+          height: metadata.height || 1200
+        };
+        
+        console.log(`[PDF Download] Image ${i + 1} dimensions: ${dimensions.width}x${dimensions.height}`);
+        
+        processedImages.push({
+          buffer: processedBuffer,
+          width: dimensions.width,
+          height: dimensions.height,
+          isPng: isPng && !isWebP
+        });
+        
+        console.log(`[PDF Download] ✅ Image ${i + 1}/${images.length} processed`);
+      } catch (error) {
+        console.error(`[PDF Download] ❌ Failed to process image ${i + 1}:`, error);
+        // Continue with other images
+      }
+    }
+
+    console.log(`[PDF Download] Step 2: Creating single long page with ${processedImages.length} images...`);
+
+    // Calculate total height and max width
+    let totalHeight = 0;
+    let maxWidth = 0;
     
-    return new Response(pdfArray, {
-      status: 200,
+    for (const img of processedImages) {
+      totalHeight += img.height;
+      maxWidth = Math.max(maxWidth, img.width);
+    }
+
+    console.log(`[PDF Download] Page dimensions: ${maxWidth}x${totalHeight} (${(totalHeight / 1000).toFixed(1)}k pixels)`);
+
+    // Create single page with total height
+    const page = pdfDoc.addPage([maxWidth, totalHeight]);
+    
+    // Draw all images vertically
+    let currentY = totalHeight; // Start from top (PDF coordinates are bottom-up)
+    
+    for (let i = 0; i < processedImages.length; i++) {
+      const imgData = processedImages[i];
+      
+      try {
+        // Embed image
+        let image;
+        if (imgData.isPng) {
+          image = await pdfDoc.embedPng(imgData.buffer);
+        } else {
+          image = await pdfDoc.embedJpg(imgData.buffer);
+        }
+
+        // Calculate Y position (PDF uses bottom-up coordinates)
+        currentY -= imgData.height;
+        
+        // Center image horizontally if narrower than page
+        const x = (maxWidth - imgData.width) / 2;
+        
+        // Draw image
+        page.drawImage(image, {
+          x: x,
+          y: currentY,
+          width: imgData.width,
+          height: imgData.height,
+        });
+        
+        console.log(`[PDF Download] ✅ Image ${i + 1}/${processedImages.length} drawn at Y=${currentY}`);
+      } catch (error) {
+        console.error(`[PDF Download] ❌ Failed to draw image ${i + 1}:`, error);
+      }
+    }
+
+    console.log('[PDF Download] Step 3: All images added to single page!');
+
+    // Generate PDF bytes
+    const pdfBytes = await pdfDoc.save();
+
+    console.log(`[PDF Download] PDF generated successfully. Size: ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB`);
+
+    // Create safe filename
+    const safeTitle = manhwaTitle.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+    const filename = `${safeTitle}_Chapter_${chapter}.pdf`;
+
+    // Return PDF as downloadable file
+    return new Response(pdfBytes, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': pdfBuffer.length.toString(),
-        'X-Processing-Time': `${totalTime}ms`,
-        'X-Image-Count': images.length.toString(),
-      }
-    })
-
-  } catch (error: any) {
-    console.error('❌ Server-side PDF generation error:', error)
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to generate PDF',
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        'Content-Length': pdfBytes.length.toString(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
+    });
+  } catch (error) {
+    console.error('[PDF Download] Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate PDF', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
-    )
+    );
   }
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { generateChapterPDF } from '@/lib/pdfMakeGenerator'
 
 interface DownloadChapterButtonSmallProps {
   manhwaSlug: string
@@ -42,66 +41,87 @@ export default function DownloadChapterButtonSmall({
   const handleDirectPDFDownload = async () => {
     try {
       setIsGenerating(true)
+      setProgress(5)
+      
+      console.log('🚀 Starting server-side PDF download...')
+      
+      // Get Supabase public URL for chapter JSON
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'komiku-data'
+      const jsonUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/Chapter/komiku/${manhwaSlug}.json`
+      
+      console.log(`📥 Fetching chapter JSON from: ${jsonUrl}`)
       setProgress(10)
       
-      console.log('🚀 Starting server-side PDF generation...')
+      // Fetch manhwa JSON directly from Supabase
+      const jsonResponse = await fetch(jsonUrl)
       
-      // Call server-side PDF generation API
-      const response = await fetch('/api/chapter/download', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          slug: manhwaSlug,
-          chapterId: chapterNumber
-        })
-      })
-      
-      setProgress(50)
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to generate PDF')
+      if (!jsonResponse.ok) {
+        console.error(`❌ Failed to fetch JSON: ${jsonResponse.status} ${jsonResponse.statusText}`)
+        throw new Error(`Manhwa data not found (${jsonResponse.status})`)
       }
       
-      setProgress(80)
+      const manhwaData = await jsonResponse.json()
+      console.log(`✅ Manhwa data loaded: ${manhwaData.manhwaTitle || manhwaData.title}`)
       
-      // Get PDF blob
-      const blob = await response.blob()
+      // Find specific chapter
+      const chapters = manhwaData.chapters || []
+      const chapter = chapters.find((ch: any) => ch.number?.toString() === chapterNumber.toString())
       
-      setProgress(90)
+      if (!chapter) {
+        console.error(`❌ Chapter ${chapterNumber} not found in JSON`)
+        throw new Error(`Chapter ${chapterNumber} tidak ditemukan di file JSON`)
+      }
       
-      // Download PDF
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${manhwaSlug}-chapter-${chapterNumber}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
+      console.log(`✅ Found chapter: ${chapter.title || `Chapter ${chapterNumber}`}`)
+      
+      const images = chapter.images || []
+      
+      if (images.length === 0) {
+        throw new Error('Chapter ini tidak memiliki gambar')
+      }
+      
+      console.log(`🖼️  Found ${images.length} images for chapter ${chapterNumber}`)
+      setProgress(30)
+      
+      // Extract image URLs from objects
+      const imageUrls = images.map((img: any) => {
+        // Handle both string and object format
+        if (typeof img === 'string') return img
+        return img.url || img.src || img
+      })
+      
+      // Use direct download via server-side API
+      const { downloadChapterDirect } = await import('@/lib/directDownload')
+      
+      downloadChapterDirect({
+        manhwaTitle,
+        manhwaSlug,
+        chapterNumber,
+        images: imageUrls
+      })
       
       setProgress(100)
-      
-      // Get processing time from headers
-      const processingTime = response.headers.get('X-Processing-Time')
-      const imageCount = response.headers.get('X-Image-Count')
-      console.log(`✅ PDF downloaded! (${processingTime}, ${imageCount} images)`)
-      
-      setTimeout(() => {
-        setProgress(0)
-        }
-      )
       
       setTimeout(() => {
         setIsGenerating(false)
         setProgress(0)
-      }, 1500)
+      }, 1000)
       
     } catch (error) {
-      console.error('Error generating PDF:', error)
-      alert('Gagal membuat PDF. Silakan coba lagi.')
+      console.error('❌ Error generating PDF:', error)
+      
+      // Show specific error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      
+      if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+        alert(`❌ Gagal mengunduh chapter ${chapterNumber}\n\nFile chapter tidak ditemukan di server.\n\nKemungkinan:\n- Chapter belum tersedia\n- File JSON belum di-upload ke Supabase\n\nSilakan coba chapter lain atau hubungi admin.`)
+      } else if (errorMessage.includes('tidak ditemukan di file JSON')) {
+        alert(`❌ Chapter ${chapterNumber} tidak ada di file JSON\n\nFile JSON ada, tapi chapter ini tidak tercatat.\n\nSilakan coba chapter lain.`)
+      } else {
+        alert(`❌ Gagal mengunduh chapter\n\nError: ${errorMessage}\n\nSilakan coba lagi atau hubungi admin.`)
+      }
+    } finally {
       setIsGenerating(false)
       setProgress(0)
     }
