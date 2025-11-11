@@ -32,13 +32,21 @@ export default function PDFConverterPage() {
   const [isLoadingChapters, setIsLoadingChapters] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
-  // Modal state for single chapter download
+9
+
+  const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
+  
+  // Modal state for download
   const [showModal, setShowModal] = useState(false);
   const [currentChapter, setCurrentChapter] = useState<string>('');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [pdfReady, setPdfReady] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string>('');
   const [progressMessage, setProgressMessage] = useState<string>('Preparing download...');
+  
+  // Batch download state
+  const [isBatchDownloading, setIsBatchDownloading] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
 
   // Real-time search with debounce
   const handleSearchInput = (value: string) => {
@@ -128,6 +136,7 @@ export default function PDFConverterPage() {
     setSelectedManhwa(manhwa);
     setIsLoadingChapters(true);
     setChapters([]);
+    setSelectedChapters(new Set()); // Clear selection
 
     try {
       const response = await fetch(`/api/komiku/${manhwa.slug}/chapters`);
@@ -141,6 +150,30 @@ export default function PDFConverterPage() {
     } finally {
       setIsLoadingChapters(false);
     }
+  };
+
+  // Toggle chapter selection
+  const toggleChapterSelection = (chapterNumber: string) => {
+    setSelectedChapters(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(chapterNumber)) {
+        newSet.delete(chapterNumber);
+      } else {
+        newSet.add(chapterNumber);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all chapters
+  const selectAllChapters = () => {
+    const allChapterNumbers = chapters.map(ch => ch.number);
+    setSelectedChapters(new Set(allChapterNumbers));
+  };
+
+  // Clear all selections
+  const clearAllSelections = () => {
+    setSelectedChapters(new Set());
   };
 
   // Download single chapter
@@ -299,26 +332,59 @@ export default function PDFConverterPage() {
     }, 1000);
   };
 
+  // Batch download selected chapters
+  const downloadSelectedChapters = async () => {
+    if (selectedChapters.size === 0 || !selectedManhwa) return;
+    
+    setIsBatchDownloading(true);
+    setBatchProgress({ current: 0, total: selectedChapters.size });
+    
+    const chaptersToDownload = Array.from(selectedChapters).sort((a, b) => {
+      return parseInt(a) - parseInt(b);
+    });
+    
+    for (let i = 0; i < chaptersToDownload.length; i++) {
+      const chapterNumber = chaptersToDownload[i];
+      setBatchProgress({ current: i + 1, total: chaptersToDownload.length });
+      
+      try {
+        await downloadChapter(chapterNumber);
+        // Wait for modal to close before next download
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (error) {
+        console.error(`Failed to download chapter ${chapterNumber}:`, error);
+      }
+    }
+    
+    setIsBatchDownloading(false);
+    setBatchProgress({ current: 0, total: 0 });
+    clearAllSelections();
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-slate-800/50 backdrop-blur-sm shadow-lg border-b border-slate-700/50">
+      <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-500 rounded-lg flex items-center justify-center shadow-lg shadow-primary-500/30">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
+            <div className="flex items-center gap-4">
+              <Image
+                src="/favpdf.jpg"
+                alt="PDF Converter"
+                width={48}
+                height={48}
+                className="rounded-lg shadow-md"
+              />
               <div>
-                <h1 className="text-2xl font-bold text-white">Manga → PDF</h1>
-                <p className="text-sm text-slate-400">Cari dan unduh chapter manga secara batch dengan konversi otomatis ke PDF</p>
+                <h1 className="text-2xl font-bold text-gray-900">Manga PDF Converter</h1>
+                <p className="text-sm text-gray-600">Download manga chapters as PDF files</p>
               </div>
             </div>
             <Link 
               href="/"
-              className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
             >
-              ← Kembali
+              ← Back to Home
             </Link>
           </div>
         </div>
@@ -326,62 +392,73 @@ export default function PDFConverterPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Limit Info */}
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-lg border border-slate-700/50 p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-white mb-1">Limit</h3>
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">Single (hari ini)</span>
-                  <span className="text-primary-400 font-medium">Unlimited</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">Batch (hari ini)</span>
-                  <span className="text-primary-400 font-medium">Unlimited</span>
-                </div>
+        {/* Info Banner */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-200 p-6 mb-8">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-white" />
               </div>
             </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 mb-2">How to Use</h3>
+              <ul className="space-y-1 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                  Search for your favorite manga
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                  Select chapters to download
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                  Click download and wait for PDF generation
+                </li>
+              </ul>
+            </div>
             <div className="text-right">
-              <p className="text-sm text-slate-400 mb-2">Reset: 00:00 WIB</p>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
-                Free Access
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">
+                ✓ Free & Unlimited
               </span>
             </div>
           </div>
         </div>
 
         {/* Search Section */}
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-lg border border-slate-700/50 p-8 mb-6">
-          <h2 className="text-3xl font-bold text-center text-white mb-2">
-            Cari Manga/Manhwa Kamu
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8 mb-8">
+          <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">
+            Search Manga
           </h2>
-          <p className="text-center text-slate-400 mb-8">
-            Cari dan unduh chapter manga secara batch dengan konversi otomatis ke PDF
+          <p className="text-center text-gray-600 mb-6">
+            Type manga title to search and download chapters as PDF
           </p>
 
           <div className="max-w-2xl mx-auto">
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => handleSearchInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Ketik judul... (auto search)"
-                  className="w-full pl-12 pr-4 py-3 bg-slate-700/50 border-2 border-slate-600 text-white placeholder-slate-400 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                  placeholder="Search manga title... (auto search)"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-2 border-gray-300 text-gray-900 placeholder-gray-500 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                 />
               </div>
               <button
                 onClick={() => handleSearch()}
                 disabled={isSearching || !searchQuery.trim()}
-                className="px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-medium rounded-xl hover:from-primary-700 hover:to-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-500/30"
+                className="px-6 py-3.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2"
               >
                 {isSearching ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  'Cari'
+                  <>
+                    <Search className="w-5 h-5" />
+                    <span className="hidden sm:inline">Search</span>
+                  </>
                 )}
               </button>
             </div>
@@ -390,16 +467,17 @@ export default function PDFConverterPage() {
 
         {/* Search Results */}
         {searchResults.length > 0 && !selectedManhwa && (
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-lg border border-slate-700/50 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-white mb-4">
-              Hasil Pencarian ({searchResults.length})
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+              <span>Search Results</span>
+              <span className="text-sm font-normal text-gray-500">({searchResults.length} found)</span>
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {searchResults.map((manhwa, index) => (
                 <button
                   key={manhwa.slug}
                   onClick={() => handleSelectManhwa(manhwa)}
-                  className="group text-left bg-slate-700/30 border-2 border-slate-600 rounded-lg overflow-hidden hover:border-primary-500 hover:shadow-lg hover:shadow-primary-500/20 transition-all hover:-translate-y-1"
+                  className="group text-left bg-white border-2 border-gray-200 rounded-lg overflow-hidden hover:border-blue-500 hover:shadow-lg transition-all hover:-translate-y-1"
                 >
                   {/* Image */}
                   <div className="aspect-[3/4] relative overflow-hidden bg-slate-900">
@@ -416,7 +494,7 @@ export default function PDFConverterPage() {
                     
                     {/* Type Badge */}
                     <div className="absolute top-2 left-2">
-                      <span className="px-2 py-1 text-xs font-medium bg-primary-500/90 text-white rounded shadow-lg backdrop-blur-sm">
+                      <span className="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded shadow-md">
                         {manhwa.type}
                       </span>
                     </div>
@@ -424,7 +502,7 @@ export default function PDFConverterPage() {
                     {/* Rating Badge */}
                     {manhwa.rating && (
                       <div className="absolute top-2 right-2">
-                        <span className="px-2 py-1 text-xs font-medium bg-yellow-500/90 text-white rounded shadow-lg backdrop-blur-sm flex items-center gap-1">
+                        <span className="px-2 py-1 text-xs font-semibold bg-yellow-400 text-gray-900 rounded shadow-md flex items-center gap-1">
                           <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
                             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                           </svg>
@@ -435,10 +513,10 @@ export default function PDFConverterPage() {
                     
                     {/* Status Badge */}
                     <div className="absolute bottom-2 left-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded shadow-lg backdrop-blur-sm ${
+                      <span className={`px-2 py-1 text-xs font-semibold rounded shadow-md ${
                         manhwa.status === 'Ongoing' 
-                          ? 'bg-green-500/90 text-white' 
-                          : 'bg-slate-500/90 text-white'
+                          ? 'bg-green-500 text-white' 
+                          : 'bg-gray-500 text-white'
                       }`}>
                         {manhwa.status}
                       </span>
@@ -446,8 +524,8 @@ export default function PDFConverterPage() {
                   </div>
                   
                   {/* Info */}
-                  <div className="p-3">
-                    <h4 className="font-semibold text-sm text-white line-clamp-2 mb-2 group-hover:text-primary-400 transition-colors">
+                  <div className="p-3 bg-gray-50">
+                    <h4 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
                       {manhwa.title}
                     </h4>
                     
@@ -455,12 +533,12 @@ export default function PDFConverterPage() {
                     {manhwa.genres && manhwa.genres.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-2">
                         {manhwa.genres.slice(0, 2).map((genre, i) => (
-                          <span key={i} className="px-1.5 py-0.5 text-xs bg-slate-600/50 text-slate-300 rounded">
+                          <span key={i} className="px-1.5 py-0.5 text-xs bg-gray-200 text-gray-700 rounded">
                             {genre}
                           </span>
                         ))}
                         {manhwa.genres.length > 2 && (
-                          <span className="px-1.5 py-0.5 text-xs text-slate-400">
+                          <span className="px-1.5 py-0.5 text-xs text-gray-500">
                             +{manhwa.genres.length - 2}
                           </span>
                         )}
@@ -468,9 +546,9 @@ export default function PDFConverterPage() {
                     )}
                     
                     {/* Chapter Count */}
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <p className="text-xs text-gray-600 flex items-center gap-1">
                       <FileText className="w-3 h-3" />
-                      {manhwa.totalChapters} Chapter
+                      {manhwa.totalChapters} Chapters
                     </p>
                   </div>
                 </button>
@@ -481,29 +559,34 @@ export default function PDFConverterPage() {
 
         {/* Selected Manhwa & Chapters */}
         {selectedManhwa && (
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-lg border border-slate-700/50 p-6">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
             {/* Manhwa Info */}
-            <div className="flex items-start gap-4 mb-6 pb-6 border-b border-slate-700">
+            <div className="flex items-start gap-4 mb-6 pb-6 border-b border-gray-200">
               <img
                 src={selectedManhwa.image}
                 alt={selectedManhwa.title}
                 className="w-24 h-32 object-cover rounded-lg shadow-md"
               />
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
                   {selectedManhwa.title}
                 </h3>
                 
                 {/* Type, Status, Chapters */}
-                <div className="flex items-center gap-3 text-sm mb-3">
-                  <span className="px-2 py-1 bg-primary-500/20 text-primary-400 border border-primary-500/30 rounded font-medium">
+                <div className="flex items-center gap-3 text-sm mb-3 flex-wrap">
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 border border-blue-200 rounded-full font-medium">
                     {selectedManhwa.type}
                   </span>
-                  <span className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded">
+                  <span className={`px-3 py-1 rounded-full font-medium ${
+                    selectedManhwa.status === 'Ongoing'
+                      ? 'bg-green-100 text-green-700 border border-green-200'
+                      : 'bg-gray-100 text-gray-700 border border-gray-200'
+                  }`}>
                     {selectedManhwa.status}
                   </span>
-                  <span className="text-slate-400">
-                    {selectedManhwa.totalChapters} Chapter
+                  <span className="text-gray-600 flex items-center gap-1">
+                    <FileText className="w-4 h-4" />
+                    {selectedManhwa.totalChapters} Chapters
                   </span>
                 </div>
                 
@@ -532,7 +615,7 @@ export default function PDFConverterPage() {
                         </svg>
                       ))}
                     </div>
-                    <span className="text-sm text-slate-400">
+                    <span className="text-sm text-gray-600 font-medium">
                       {selectedManhwa.rating.toFixed(1)}
                     </span>
                   </div>
@@ -544,13 +627,13 @@ export default function PDFConverterPage() {
                     {selectedManhwa.genres.slice(0, 5).map((genre, index) => (
                       <span
                         key={index}
-                        className="px-2 py-0.5 text-xs bg-slate-700/30 text-slate-300 border border-slate-600/50 rounded"
+                        className="px-2 py-1 text-xs bg-gray-100 text-gray-700 border border-gray-200 rounded-full"
                       >
                         {genre}
                       </span>
                     ))}
                     {selectedManhwa.genres.length > 5 && (
-                      <span className="px-2 py-0.5 text-xs text-slate-400">
+                      <span className="px-2 py-1 text-xs text-gray-500">
                         +{selectedManhwa.genres.length - 5} more
                       </span>
                     )}
@@ -562,37 +645,89 @@ export default function PDFConverterPage() {
                   setSelectedManhwa(null);
                   setChapters([]);
                 }}
-                className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
               >
-                ← Ganti Manga
+                ← Change Manga
               </button>
             </div>
+
+            {/* Batch Download Controls */}
+            {chapters.length > 0 && (
+              <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={selectAllChapters}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={clearAllSelections}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300"
+                  >
+                    Clear
+                  </button>
+                  <span className="text-sm text-gray-600 font-medium">
+                    {selectedChapters.size} selected
+                  </span>
+                </div>
+                <button
+                  onClick={downloadSelectedChapters}
+                  disabled={selectedChapters.size === 0 || isBatchDownloading}
+                  className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2"
+                >
+                  {isBatchDownloading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Downloading {batchProgress.current}/{batchProgress.total}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Download {selectedChapters.size > 0 ? `(${selectedChapters.size})` : 'Selected'}
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Chapters List */}
             {isLoadingChapters ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
               </div>
             ) : chapters.length > 0 ? (
-              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                 {chapters.map((chapter) => (
                   <div
                     key={chapter.number}
-                    className="border-2 border-slate-600 rounded-lg p-4 transition-all flex items-center gap-4 bg-slate-700/30 hover:border-slate-500"
+                    className={`border-2 rounded-lg p-4 transition-all flex items-center gap-4 ${
+                      selectedChapters.has(chapter.number)
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
+                    }`}
                   >
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={selectedChapters.has(chapter.number)}
+                      onChange={() => toggleChapterSelection(chapter.number)}
+                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+
                     {/* Chapter circle icon */}
-                    <div className="w-10 h-10 rounded-full border-2 border-primary-500 flex items-center justify-center flex-shrink-0 bg-primary-500/10">
-                      <span className="text-primary-400 font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full border-2 border-blue-500 flex items-center justify-center flex-shrink-0 bg-blue-100">
+                      <span className="text-blue-700 font-bold text-sm">
                         {chapter.number}
                       </span>
                     </div>
 
                     {/* Chapter Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-white mb-1">
+                      <div className="font-semibold text-gray-900 mb-1">
                         Chapter {chapter.number}
                       </div>
-                      <div className="text-sm text-slate-400 truncate">
+                      <div className="text-sm text-gray-600 truncate">
                         {chapter.title}
                       </div>
                     </div>
@@ -600,7 +735,7 @@ export default function PDFConverterPage() {
                     {/* Download Button */}
                     <button
                       onClick={() => downloadChapter(chapter.number)}
-                      className="flex-shrink-0 p-2 bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors group"
+                      className="flex-shrink-0 p-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors group shadow-sm"
                       title="Download PDF"
                     >
                       <Download className="w-5 h-5 text-white" />
@@ -609,8 +744,8 @@ export default function PDFConverterPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 text-slate-400">
-                Tidak ada chapter tersedia
+              <div className="text-center py-12 text-gray-500">
+                No chapters available
               </div>
             )}
           </div>
@@ -618,15 +753,15 @@ export default function PDFConverterPage() {
 
         {/* Empty State */}
         {searchResults.length === 0 && !selectedManhwa && !isSearching && (
-          <div className="text-center py-12">
-            <div className="w-20 h-20 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-10 h-10 text-slate-400" />
+          <div className="text-center py-16">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-10 h-10 text-blue-600" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">
-              Mulai Pencarian
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Start Searching
             </h3>
-            <p className="text-slate-400">
-              Ketik judul manga/manhwa di atas untuk memulai
+            <p className="text-gray-600">
+              Type manga title above to search and download chapters
             </p>
           </div>
         )}
