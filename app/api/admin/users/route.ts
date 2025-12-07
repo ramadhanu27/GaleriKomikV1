@@ -18,6 +18,9 @@ interface User {
   banned_at?: string
   total_bookmarks?: number
   total_comments?: number
+  is_admin?: boolean
+  is_premium?: boolean
+  premium_expires_at?: string
 }
 
 // GET - Fetch all users
@@ -124,9 +127,24 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching comment stats:', err)
     }
 
+    // Get user profiles for admin/premium status
+    let profiles: { id: string; is_admin: boolean; is_premium: boolean; premium_expires_at?: string }[] = []
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, is_admin, is_premium, premium_expires_at')
+      
+      if (!error && data) {
+        profiles = data
+      }
+    } catch (err) {
+      console.error('Error fetching profiles:', err)
+    }
+
     // Combine data
     const users: User[] = authUsers.users.map(authUser => {
       const banInfo = bannedUsers?.find(ban => ban.user_id === authUser.id)
+      const profileInfo = profiles?.find(profile => profile.id === authUser.id)
       
       return {
         id: authUser.id,
@@ -137,7 +155,10 @@ export async function GET(request: NextRequest) {
         ban_reason: banInfo?.reason,
         banned_at: banInfo?.created_at,
         total_bookmarks: (bookmarkStats?.data as unknown as Record<string, number>)[authUser.id] || 0,
-        total_comments: (commentStats?.data as unknown as Record<string, number>)[authUser.id] || 0
+        total_comments: (commentStats?.data as unknown as Record<string, number>)[authUser.id] || 0,
+        is_admin: profileInfo?.is_admin || false,
+        is_premium: profileInfo?.is_premium || false,
+        premium_expires_at: profileInfo?.premium_expires_at
       }
     })
 

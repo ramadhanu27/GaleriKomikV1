@@ -15,6 +15,9 @@ interface User {
   banned_at?: string
   total_bookmarks?: number
   total_comments?: number
+  is_admin?: boolean
+  is_premium?: boolean
+  premium_expires_at?: string
 }
 
 export default function UserManager() {
@@ -28,6 +31,10 @@ export default function UserManager() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [banReason, setBanReason] = useState('')
   const [isBanning, setIsBanning] = useState(false)
+  const [showRoleModal, setShowRoleModal] = useState(false)
+  const [roleAction, setRoleAction] = useState<'admin' | 'premium' | null>(null)
+  const [premiumDuration, setPremiumDuration] = useState('30')
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false)
   const itemsPerPage = 20
 
   useEffect(() => {
@@ -132,6 +139,51 @@ export default function UserManager() {
     }
   }
 
+  const handleRoleUpdate = (user: User, action: 'admin' | 'premium') => {
+    setSelectedUser(user)
+    setRoleAction(action)
+    setShowRoleModal(true)
+  }
+
+  const handleConfirmRoleUpdate = async () => {
+    if (!selectedUser || !roleAction) return
+
+    setIsUpdatingRole(true)
+
+    try {
+      const body: any = {
+        action: roleAction
+      }
+
+      if (roleAction === 'premium') {
+        body.duration = parseInt(premiumDuration)
+      }
+
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchUsers()
+        setShowRoleModal(false)
+        setSelectedUser(null)
+        setRoleAction(null)
+        setPremiumDuration('30')
+      } else {
+        alert('Error: ' + data.error)
+      }
+    } catch (error) {
+      console.error('Error updating user role:', error)
+      alert('Failed to update user role')
+    } finally {
+      setIsUpdatingRole(false)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('id-ID', {
@@ -215,6 +267,7 @@ export default function UserManager() {
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">User</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Activity</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Roles</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -222,7 +275,7 @@ export default function UserManager() {
               <tbody className="divide-y divide-slate-700">
                 {currentUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
                       {searchQuery ? 'No users found matching your search' : 'No users found'}
                     </td>
                   </tr>
@@ -259,6 +312,30 @@ export default function UserManager() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {user.is_admin && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              Admin
+                            </span>
+                          )}
+                          {user.is_premium && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              Premium
+                            </span>
+                          )}
+                          {!user.is_admin && !user.is_premium && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              User
+                            </span>
+                          )}
+                        </div>
+                        {user.is_premium && user.premium_expires_at && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            Expires {formatDate(user.premium_expires_at)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
                         {user.banned ? (
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-1 text-xs font-medium rounded-lg bg-red-500/20 border border-red-500/50 text-red-400">
@@ -275,7 +352,32 @@ export default function UserManager() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          {/* Admin Toggle */}
+                          <button
+                            onClick={() => handleRoleUpdate(user, 'admin')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                              user.is_admin 
+                                ? 'bg-red-500/30 hover:bg-red-500/40 text-red-300 border-red-500/50' 
+                                : 'bg-slate-600/30 hover:bg-slate-600/40 text-slate-300 border-slate-500/50'
+                            }`}
+                          >
+                            {user.is_admin ? 'Remove Admin' : 'Make Admin'}
+                          </button>
+                          
+                          {/* Premium Toggle */}
+                          <button
+                            onClick={() => handleRoleUpdate(user, 'premium')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                              user.is_premium 
+                                ? 'bg-yellow-500/30 hover:bg-yellow-500/40 text-yellow-300 border-yellow-500/50' 
+                                : 'bg-slate-600/30 hover:bg-slate-600/40 text-slate-300 border-slate-500/50'
+                            }`}
+                          >
+                            {user.is_premium ? 'Remove Premium' : 'Add Premium'}
+                          </button>
+                          
+                          {/* Ban/Unban */}
                           {user.banned ? (
                             <button
                               onClick={() => handleUnbanUser(user.id)}
@@ -388,6 +490,102 @@ export default function UserManager() {
                       setShowBanModal(false)
                       setSelectedUser(null)
                       setBanReason('')
+                    }}
+                    className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Role Management Modal */}
+        {showRoleModal && selectedUser && roleAction && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl border-2 border-slate-700 max-w-md w-full">
+              <div className="p-6 border-b border-slate-700">
+                <h2 className="text-2xl font-bold text-white">
+                  {roleAction === 'admin' ? 'Admin Access' : 'Premium Subscription'}
+                </h2>
+                <p className="text-slate-400 mt-1">User: {selectedUser.email}</p>
+              </div>
+              
+              <div className="p-6">
+                <div className="mb-6">
+                  <div className="bg-slate-700/50 rounded-lg p-4">
+                    <p className="text-slate-300 text-sm">
+                      {roleAction === 'admin' ? (
+                        <>
+                          <strong>Admin privileges include:</strong><br/>
+                          • Access to admin dashboard<br/>
+                          • Manage manga and users<br/>
+                          • Full system control
+                        </>
+                      ) : (
+                        <>
+                          <strong>Premium benefits include:</strong><br/>
+                          • Ad-free experience<br/>
+                          • Early chapter access<br/>
+                          • Unlimited bookmarks
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {roleAction === 'premium' && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Premium Duration (days)
+                    </label>
+                    <select
+                      value={premiumDuration}
+                      onChange={(e) => setPremiumDuration(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-700/50 border-2 border-slate-600 text-white rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                    >
+                      <option value="30">30 days</option>
+                      <option value="90">90 days</option>
+                      <option value="180">180 days</option>
+                      <option value="365">1 year</option>
+                    </select>
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <p className="text-slate-400 text-sm">
+                    Are you sure you want to {roleAction === 'admin' 
+                      ? (selectedUser.is_admin ? 'remove admin access from' : 'grant admin access to')
+                      : (selectedUser.is_premium ? 'remove premium subscription from' : 'grant premium subscription to')
+                    } this user?
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleConfirmRoleUpdate}
+                    disabled={isUpdatingRole}
+                    className={`flex-1 px-6 py-3 font-medium rounded-lg transition-all disabled:opacity-50 ${
+                      roleAction === 'admin'
+                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                        : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                    }`}
+                  >
+                    {isUpdatingRole 
+                      ? 'Processing...' 
+                      : (roleAction === 'admin' 
+                          ? (selectedUser.is_admin ? 'Remove Admin' : 'Make Admin')
+                          : (selectedUser.is_premium ? 'Remove Premium' : 'Add Premium')
+                        )
+                    }
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRoleModal(false)
+                      setSelectedUser(null)
+                      setRoleAction(null)
+                      setPremiumDuration('30')
                     }}
                     className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-all"
                   >
