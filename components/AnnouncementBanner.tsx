@@ -17,7 +17,7 @@ export default function AnnouncementBanner() {
     {
       id: "update-2025-12-07-maintenance",
       title: "📄 Maintenance!",
-      message: "Kami sedang melakukan maintenance pada server kami. Kami akan segera kembali.",
+      message: "Kami sedang melakukan perbaruan data komik kami. Kami akan segera kembali.",
       type: "warning",
       date: "7 Desember 2025",
     },
