@@ -1,116 +1,104 @@
-import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
-import dynamic from 'next/dynamic'
-import './globals.css'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
-import { ThemeProvider } from '@/components/ThemeProvider'
-import Analytics from '@/components/Analytics'
-import { SpeedInsights } from '@vercel/speed-insights/next'
-import { headers } from 'next/headers'
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import Analytics from "@/components/Analytics";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { headers } from "next/headers";
 
-const AuthProvider = dynamic(
-  () => import('@/contexts/AuthContext').then(mod => ({ default: mod.AuthProvider })),
-  { ssr: false }
-)
-
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const viewport: Viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 5,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#1a1a2e' },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a1a2e" },
   ],
-}
+};
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.galerikomik.cyou'),
+  metadataBase: new URL("https://www.galerikomik.cyou"),
   title: {
-    default: 'Galeri Komik - Baca Komik Bahasa Indonesia',
-    template: '%s | Galeri Komik'
+    default: "Galeri Komik - Baca Komik Bahasa Indonesia",
+    template: "%s | Galeri Komik",
   },
-  description: 'Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari. Baca gratis dengan kualitas HD.',
-  keywords: ['komik', 'manga', 'manhwa', 'webtoon', 'bahasa indonesia', 'baca online', 'komik indo', 'manga online', 'baca gratis'],
-  authors: [{ name: 'Galeri Komik' }],
-  creator: 'Galeri Komik',
-  publisher: 'Galeri Komik',
-  category: 'Entertainment',
-  classification: 'Comics & Manga',
+  description: "Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari. Baca gratis dengan kualitas HD.",
+  keywords: ["komik", "manga", "manhwa", "webtoon", "bahasa indonesia", "baca online", "komik indo", "manga online", "baca gratis"],
+  authors: [{ name: "Galeri Komik" }],
+  creator: "Galeri Komik",
+  publisher: "Galeri Komik",
+  category: "Entertainment",
+  classification: "Comics & Manga",
   robots: {
     index: true,
     follow: true,
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   icons: {
     icon: [
-      { url: '/logo-new.jpg', sizes: 'any', type: 'image/jpeg' },
-      { url: '/icon.png', type: 'image/png', sizes: '32x32' },
+      { url: "/logo-new.jpg", sizes: "any", type: "image/jpeg" },
+      { url: "/icon.png", type: "image/png", sizes: "32x32" },
     ],
-    shortcut: '/logo-new.jpg',
-    apple: [
-      { url: '/logo-new.jpg', sizes: '180x180', type: 'image/jpeg' },
-    ],
+    shortcut: "/logo-new.jpg",
+    apple: [{ url: "/logo-new.jpg", sizes: "180x180", type: "image/jpeg" }],
   },
-  manifest: '/manifest.json',
+  manifest: "/manifest.json",
   openGraph: {
-    title: 'Galeri Komik - Baca Komik Bahasa Indonesia',
-    description: 'Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
-    url: 'https://www.galerikomik.cyou',
-    siteName: 'Galeri Komik',
+    title: "Galeri Komik - Baca Komik Bahasa Indonesia",
+    description: "Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.",
+    url: "https://www.galerikomik.cyou",
+    siteName: "Galeri Komik",
     images: [
       {
-        url: '/og-image.png',
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: 'Galeri Komik - Baca Komik Bahasa Indonesia',
+        alt: "Galeri Komik - Baca Komik Bahasa Indonesia",
       },
     ],
-    locale: 'id_ID',
-    type: 'website',
+    locale: "id_ID",
+    type: "website",
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Galeri Komik - Baca Komik Bahasa Indonesia',
-    description: 'Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.',
-    images: ['/og-image.png'],
+    card: "summary_large_image",
+    title: "Galeri Komik - Baca Komik Bahasa Indonesia",
+    description: "Platform terbaik untuk membaca komik bahasa Indonesia. Koleksi lengkap dengan update terbaru setiap hari.",
+    images: ["/og-image.png"],
   },
   alternates: {
-    canonical: 'https://www.galerikomik.cyou',
+    canonical: "https://www.galerikomik.cyou",
   },
   verification: {
-    google: 'your-google-verification-code',
+    google: "your-google-verification-code",
   },
   other: {
-    'msapplication-TileColor': '#1a1a2e',
-    'msapplication-config': '/browserconfig.xml',
-    'apple-mobile-web-app-title': 'Galeri Komik',
-    'application-name': 'Galeri Komik',
-    'mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-status-bar-style': 'black-translucent',
-    'format-detection': 'telephone=no',
-    'theme-color': '#1a1a2e',
+    "msapplication-TileColor": "#1a1a2e",
+    "msapplication-config": "/browserconfig.xml",
+    "apple-mobile-web-app-title": "Galeri Komik",
+    "application-name": "Galeri Komik",
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "format-detection": "telephone=no",
+    "theme-color": "#1a1a2e",
   },
-}
+};
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const headersList = await headers()
-  const pathname = headersList.get('x-pathname') || ''
-  const isPdfPage = pathname === '/pdf'
-  
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") || "";
+  const isPdfPage = pathname === "/pdf";
+
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
@@ -125,18 +113,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           }}
         />
         {/* End Google Tag Manager */}
-        
+
         {/* Preconnect to external domains */}
         <link rel="preconnect" href="https://img.komiku.org" />
         <link rel="preconnect" href="https://thumbnail.komiku.org" />
         <link rel="dns-prefetch" href="https://img.komiku.org" />
         <link rel="dns-prefetch" href="https://thumbnail.komiku.org" />
-        
+
         {/* Google Analytics */}
-        <script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=G-H0ZKH8V6Z8"
-        />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-H0ZKH8V6Z8" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -147,7 +132,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             `,
           }}
         />
-        
+
         {/* Theme script - prevent flash */}
         <script
           dangerouslySetInnerHTML={{
@@ -163,7 +148,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             `,
           }}
         />
-        
+
         {/* Cleanup old auth system */}
         <script
           dangerouslySetInnerHTML={{
@@ -201,29 +186,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       <body className={inter.className}>
         {/* Google Tag Manager (noscript) */}
         <noscript>
-          <iframe
-            src="https://www.googletagmanager.com/ns.html?id=GTM-WPB3JZMT"
-            height="0"
-            width="0"
-            style={{ display: 'none', visibility: 'hidden' }}
-          />
+          <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WPB3JZMT" height="0" width="0" style={{ display: "none", visibility: "hidden" }} />
         </noscript>
         {/* End Google Tag Manager (noscript) */}
-        
+
         <ThemeProvider>
-          <AuthProvider>
-            <Analytics />
-            <SpeedInsights />
-            <div className="flex flex-col min-h-screen">
-              {!isPdfPage && <Header />}
-              <main className="flex-1">
-                {children}
-              </main>
-              {!isPdfPage && <Footer />}
-            </div>
-          </AuthProvider>
+          <Analytics />
+          <SpeedInsights />
+          <div className="flex flex-col min-h-screen">
+            {!isPdfPage && <Header />}
+            <main className="flex-1">{children}</main>
+            {!isPdfPage && <Footer />}
+          </div>
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
