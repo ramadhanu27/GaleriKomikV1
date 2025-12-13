@@ -19,10 +19,13 @@ export default function SoulScanDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bookmarked, setBookmarked] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (slug) {
       fetchManhwaDetail();
+      // Check bookmark after component mounts (client-side only)
       setBookmarked(isBookmarked(slug));
     }
   }, [slug]);
