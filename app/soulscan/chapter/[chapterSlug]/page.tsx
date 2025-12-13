@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { SoulScanChapterResponse, SoulScanChapterResult } from "@/types/soulscan";
+import { addToReadingHistory } from "@/lib/readingHistory";
 
 // Helper function to proxy external images
 const getProxiedImageUrl = (url: string) => {
@@ -54,6 +55,22 @@ export default function SoulScanChapterPage() {
       if (data.success && data.result) {
         setChapter(data.result);
         setError(null);
+
+        // Save to reading history
+        const chapterMatch = chapterSlug.match(/chapter-(\d+)/);
+        const chapterNum = chapterMatch ? chapterMatch[1] : "";
+
+        addToReadingHistory({
+          comicSlug: mangaSlug,
+          comicTitle: data.result.title
+            .replace(" Bahasa Indonesia — Soul Scans", "")
+            .replace(/Chapter \d+.*$/, "")
+            .trim(),
+          comicImageUrl: "", // Will be updated when we have it
+          chapterSlug: chapterSlug,
+          chapterTitle: data.result.title.replace(" Bahasa Indonesia — Soul Scans", ""),
+          chapterNumber: chapterNum,
+        });
       } else {
         setError("Chapter tidak ditemukan");
       }

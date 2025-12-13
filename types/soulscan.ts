@@ -125,6 +125,27 @@ export interface SoulScanProjectsResponse {
   results: SoulScanProjectResult[];
 }
 
+// List API Types (same structure as projects but for all comics)
+export interface SoulScanListItem {
+  title: string;
+  slug: string;
+  url: string;
+  imageUrl: string;
+  latestChapter: string;
+  updateTime: string;
+}
+
+export interface SoulScanListResponse {
+  creator: string;
+  success: boolean;
+  pagination: {
+    currentPage: number;
+    hasNextPage: boolean;
+    nextPage: number;
+  };
+  results: SoulScanListItem[];
+}
+
 // Helper function to extract slug from URL
 export function extractSlugFromUrl(url: string): string {
   // URL format: https://soulscans.my.id/manga/legend-of-star-general/

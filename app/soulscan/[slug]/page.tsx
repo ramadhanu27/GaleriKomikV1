@@ -293,16 +293,6 @@ export default function SoulScanDetailPage() {
             </div>
           )}
         </div>
-
-        {/* Credit Section */}
-        <div className="text-center py-4 text-gray-500 text-sm">
-          <p>
-            Data provided by{" "}
-            <a href="https://soulscans.my.id" target="_blank" rel="noopener noreferrer" className="text-primary-400 hover:underline">
-              SoulScans
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   );

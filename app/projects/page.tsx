@@ -203,16 +203,6 @@ export default function ProjectsPage() {
             <p className="text-gray-400">Belum ada project yang tersedia</p>
           </div>
         )}
-
-        {/* Credit Section */}
-        <div className="text-center py-8 text-gray-500 text-sm">
-          <p>
-            Data provided by{" "}
-            <a href="https://soulscans.my.id" target="_blank" rel="noopener noreferrer" className="text-primary-400 hover:underline">
-              SoulScans
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   );
